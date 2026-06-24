@@ -5,7 +5,7 @@
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Status](https://img.shields.io/badge/status-in_development-orange)
 
-CiPhyxs is a high-performance, open-source physics engine developed by [DriveBy-Studios](https://github.com/DriveBy-Studios). Designed to be the foundational "Law" of the **CarnageEngine**, CiPhyxs provides robust, industrial-grade physics simulations optimized for high-intensity action games.
+CiPhyxs is a high-performance, open-source physics engine developed by [DriveBy-Studios](https://github.com/DriveBy-Studios). Designed to be the foundational "Law" of the **CarnageEngine**. Learn more about our engine [CarnageEngine](https://github.com/Driveby-Studios/CarnageEngine-Public), CiPhyxs provides robust, industrial-grade physics simulations optimized for high-intensity action games.
 
 ## 🚀 Overview
 CiPhyxs is built to handle the complex, high-velocity requirements of *Through the Eyes of Carnage*. While developed for our own engine, it is designed as a standalone, modular library that can be integrated into any custom game engine framework.
