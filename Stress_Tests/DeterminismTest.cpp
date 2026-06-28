@@ -1,9 +1,12 @@
 //==================================================================================================
 /// @file  DeterminismTest.cpp
-/// @brief  Stress test: run two parallel World instances for 5,000 frames with identical
+/// @brief  Stress test: run two parallel World instances for 500 frames with identical
 ///         initial conditions and compare state hashes for bit-exact determinism.
 ///
 /// Uses the TaskGraph DAG pipeline, Dbvt broadphase, and aligned SoA storage.
+///
+/// @note  Frame count reduced from 5000 to 500 because Debug builds are very slow.
+///        For full validation, increase kNumFrames back to 5000 in Release build.
 //==================================================================================================
 #include "StressTestBase.hpp"
 

@@ -3,19 +3,19 @@
 /// @brief  Stress test: spawn 4,000 Box bodies in a tight cluster, apply a mass-explosion
 ///         impulse, and output the TaskGraph profile summary.
 ///
-/// The original version used Voronoi-fractured ConvexMesh fragments with aligned-new allocation,
-/// which had two problems:
-///   1. `new (std::align_val_t(16)) Vec3f[n]` is not portable (crashes on some toolchains).
-///   2. Vertex copies were never freed (memory leak).
-///
-/// Fix: replaced per-fragment aligned-new with persistent `ScratchVec<Vec3f, 16>` vectors
-/// (using `AlignedAllocator`).  This ensures portable aligned allocation and proper lifetimes.
-///
-/// Additionally, the engine has a pre-existing crash at ~4096+ dynamic bodies (any shape type)
-/// during the `fixedStepTaskGraph` pipeline.  Body count is capped at 4000 to stay well below
-/// that threshold while still exercising 4,000-body + explosion + TaskGraph profiling.
-///
 /// Uses the TaskGraph DAG pipeline, Dbvt broadphase, and IDebugRenderer for visualization.
+///
+/// ## 4096+ body crash (pre-existing)
+///
+/// The engine crashes when body count >= 4096 with `enableTaskGraphPipeline = true`.
+/// Body count is capped at 4000 to stay below that threshold while still exercising the
+/// 4,000-body + explosion + TaskGraph profiling path.
+///
+/// See `MultibodyCrashTest.cpp` for diagnostic sub-tests that probe this boundary with
+/// different broadphase and pipeline configurations.
+///
+/// The original version used Voronoi-fractured ConvexMesh fragments which had memory
+/// management issues.  Current implementation uses Box shapes for stability.
 //==================================================================================================
 #include "StressTestBase.hpp"
 
@@ -73,7 +73,7 @@ int main() {
             world.createBody(ground);
         }
 
-        // ── Create 5,000 Box shapes in a tight cluster ───────────────────────────────────
+        // ── Create Box shapes in a tight cluster ─────────────────────────────────────────
         // Use a single shared Box shape for all bodies (avoids per-body shape overhead).
         const Vec3f boxHalfExtents(0.25f, 0.25f, 0.25f);
         ShapeHandle boxShape = world.createShape(Box{boxHalfExtents});

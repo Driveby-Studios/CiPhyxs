@@ -607,6 +607,10 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
                         toi = sweepSphereBox(sA, worldPosA, vel, dt,
                                               shapeB.box, worldPosB, worldRotB,
                                               nml, pt);
+                    } else if (shapeB.type == ShapeType::ConvexMesh) {
+                        toi = sweepSphereConvexMesh(sA, worldPosA, vel, dt,
+                                                     shapeB.convexMesh, worldPosB, worldRotB,
+                                                     nml, pt);
                     }
                 } else if (shapeA.type == ShapeType::Capsule) {
                     const Capsule& cA = shapeA.capsule;
@@ -625,6 +629,10 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
                         toi = sweepCapsuleBox(cA, worldPosA, vel, dt,
                                                shapeB.box, worldPosB, worldRotB,
                                                nml, pt);
+                    } else if (shapeB.type == ShapeType::ConvexMesh) {
+                        toi = sweepCapsuleConvexMesh(cA, worldPosA, vel, dt,
+                                                      shapeB.convexMesh, worldPosB, worldRotB,
+                                                      nml, pt);
                     }
                 } else if (shapeA.type == ShapeType::ConvexMesh) {
                     // Approximate the ConvexMesh as a sphere at its sub-shape origin
@@ -651,6 +659,10 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
                         toi = sweepSphereBox(approxSphere, worldPosA, vel, dt,
                                               shapeB.box, worldPosB, worldRotB,
                                               nml, pt);
+                    } else if (shapeB.type == ShapeType::ConvexMesh) {
+                        toi = sweepSphereConvexMesh(approxSphere, worldPosA, vel, dt,
+                                                     shapeB.convexMesh, worldPosB, worldRotB,
+                                                     nml, pt);
                     }
                 }
                 // For other shape types (non-sphere, non-capsule, non-ConvexMesh CCD bodies),

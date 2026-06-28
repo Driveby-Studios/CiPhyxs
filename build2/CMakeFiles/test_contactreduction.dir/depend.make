@@ -1,2 +1,0 @@
-# Empty dependencies file for test_contactreduction.
-# This may be replaced when dependencies are built.

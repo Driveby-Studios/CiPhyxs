@@ -1,5 +1,6 @@
 # Build outputs
 build/
+build2/
 CiPhyxsbuild/
 CiPhyxsbuild2/
 CiPhyxsbuild_release/

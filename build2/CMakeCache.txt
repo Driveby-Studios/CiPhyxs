@@ -15,7 +15,7 @@
 ########################
 
 //Build the test suite
-CIPHYXS_BUILD_TESTS:BOOL=ON
+CIPHYXS_BUILD_TESTS:BOOL=OFF
 
 //Add compiler flags for SIMD (SSE2/NEON)
 CIPHYXS_ENABLE_SIMD:BOOL=OFF
@@ -28,13 +28,13 @@ CMAKE_AR:FILEPATH=C:/msys64/mingw64/bin/ar.exe
 
 //Choose the type of build, options are: None Debug Release RelWithDebInfo
 // MinSizeRel ...
-CMAKE_BUILD_TYPE:STRING=Debug
+CMAKE_BUILD_TYPE:STRING=Release
 
 //Enable/Disable color output during build.
 CMAKE_COLOR_MAKEFILE:BOOL=ON
 
-//CXX compiler
-CMAKE_CXX_COMPILER:FILEPATH=C:/msys64/mingw64/bin/c++.exe
+//No help, variable specified on the command line.
+CMAKE_CXX_COMPILER:UNINITIALIZED=g++
 
 //A wrapper around 'ar' adding the appropriate '--plugin' option
 // for the GCC compiler

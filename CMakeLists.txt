@@ -101,8 +101,10 @@ if(CIPHYXS_BUILD_TESTS)
     set(STRESS_TEST_SOURCES
         Stress_Tests/DeepStackTest.cpp
         Stress_Tests/TunnelingTest.cpp
+        Stress_Tests/CCDConvexMeshTest.cpp
         Stress_Tests/ChaosDensityTest.cpp
         Stress_Tests/DeterminismTest.cpp
+        Stress_Tests/MultibodyCrashTest.cpp
         )
 
     foreach(src ${STRESS_TEST_SOURCES})
