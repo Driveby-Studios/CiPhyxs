@@ -372,13 +372,46 @@ inline float sweepCapsuleBox(const Capsule& capsule,
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
-//  Swept sphere ↔ convex mesh  (binary search via GJK)
+//  Point-to-AABB distance helpers for ConvexMesh
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 
-/// @brief  Swept sphere vs. convex mesh.  Uses binary search with GJK distance queries.
+/// @brief  Squared distance from a point to a ConvexMesh's AABB in world space.
 ///
-/// At each search step the sphere centre is sampled along the velocity vector and a GJK
-/// distance query determines whether the sphere overlaps the mesh (distance < radius).
+/// Transforms the point into the mesh's local space, clamps to the AABB (defined by
+/// halfExtents and center), and returns the squared distance.  This is the same
+/// conservative-but-robust approach used in sweepSphereBox.
+///
+/// @param point    World-space point.
+/// @param mesh     ConvexMesh (halfExtents/center in local space).
+/// @param meshPos  Mesh body world position.
+/// @param meshRot  Mesh body world rotation.
+/// @return  Squared distance from point to AABB surface (0 if inside).
+inline float pointToConvexMeshAABBDistSq(const Vec3f& point,
+                                          const ConvexMesh& mesh,
+                                          const Vec3f& meshPos,
+                                          const Quaternionf& meshRot) noexcept {
+    Vec3f localPt = meshRot.rotateInverse(point - meshPos);
+    Vec3f he = mesh.halfExtents;
+    Vec3f center = mesh.center;
+    Vec3f closest(
+        std::max(center.x - he.x, std::min(localPt.x, center.x + he.x)),
+        std::max(center.y - he.y, std::min(localPt.y, center.y + he.y)),
+        std::max(center.z - he.z, std::min(localPt.z, center.z + he.z))
+    );
+    Vec3f diff = localPt - closest;
+    return diff.lengthSquared();
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+//  Swept sphere ↔ convex mesh  (binary search via point-to-AABB, fallback to GJK for normal)
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Swept sphere vs. convex mesh.  Uses binary search with a fast point-to-AABB
+///         distance query; uses GJK only for the final contact normal.
+///
+/// The AABB-based overlap test is conservative (the AABB may be larger than the actual
+/// hull) — in the worst case we get a false-positive CCD correction rather than a missed
+/// collision (tunnelling).  For box-like meshes (8-vertex hulls) the AABB is exact.
 ///
 /// @param sphere       Sphere primitive.
 /// @param pos          Sphere centre at t=0 (world space).
@@ -400,37 +433,46 @@ inline float sweepSphereConvexMesh(const Sphere& sphere,
     float dispLen = disp.length();
     if (dispLen < 1e-12f) return 1.0f;
 
-    // Build a support function for the convex mesh (world space).
-    auto meshSupport = [&](const Vec3f& dirWorld) -> Vec3f {
-        Vec3f dirLocal = meshRot.rotateInverse(dirWorld);
-        Vec3f localPt = gjk_detail::supportConvexMesh(mesh, dirLocal);
-        return meshPos + meshRot.rotate(localPt);
-    };
+    float radiusSq = sphere.radius * sphere.radius;
 
-    // Check for initial overlap at t=0.
+    // Check for initial overlap at t=0 (fast AABB path — no GJK).
     {
-        // GJK between sphere centre (point) and the convex mesh.
-        auto pointSupport = [&](const Vec3f&) -> Vec3f { return pos; };
-        Vec3f pA, pB;
-        gjk_detail::Simplex simp;
-        float distSq = gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
-        float dist = std::sqrt(distSq);
-        if (dist < sphere.radius) {
-            // Already overlapping.
-            Vec3f nml = (pos - pB).normalized();
-            if (nml.lengthSquared() < 0.5f) {
-                // Fallback: use mesh centre offset.
-                nml = (pos - meshPos).normalized();
-                if (nml.lengthSquared() < 0.5f) nml = Vec3f(0.0f, 1.0f, 0.0f);
+        float distSq = pointToConvexMeshAABBDistSq(pos, mesh, meshPos, meshRot);
+        if (distSq < radiusSq) {
+            // Compute surface normal from the closest AABB point, same as sweepSphereBox.
+            Vec3f localPt = meshRot.rotateInverse(pos - meshPos);
+            Vec3f he = mesh.halfExtents;
+            Vec3f center = mesh.center;
+            Vec3f closest(
+                std::max(center.x - he.x, std::min(localPt.x, center.x + he.x)),
+                std::max(center.y - he.y, std::min(localPt.y, center.y + he.y)),
+                std::max(center.z - he.z, std::min(localPt.z, center.z + he.z))
+            );
+            Vec3f diff = localPt - closest;
+            float dLen = diff.length();
+            Vec3f nLocal;
+            if (dLen > 1e-12f) {
+                nLocal = diff / dLen;
+            } else {
+                // Dead centre on a face/edge/vertex — push along the shallowest axis.
+                float minPen = (center.x + he.x) - std::abs(localPt.x - center.x);
+                int axis = 0;
+                float py = (center.y + he.y) - std::abs(localPt.y - center.y);
+                if (py < minPen) { minPen = py; axis = 1; }
+                float pz = (center.z + he.z) - std::abs(localPt.z - center.z);
+                if (pz < minPen) { minPen = pz; axis = 2; }
+                nLocal = Vec3f::zero();
+                nLocal[axis] = (localPt[axis] >= center[axis]) ? 1.0f : -1.0f;
             }
-            outNormal = nml;
-            outPosition = pos - nml * sphere.radius;
+            outNormal = meshRot.rotate(nLocal).normalized();
+            Vec3f closestWorld = meshPos + meshRot.rotate(closest);
+            outPosition = closestWorld + outNormal * sphere.radius;
             return 0.0f;
         }
     }
 
-    // Binary search for TOI.
-    constexpr int kIterations = 16;
+    // Binary search for TOI using the fast AABB distance check.
+    constexpr int kIterations = 24;  // 24 iterations at disp=0.25m → ~1 cm precision
     float lo = 0.0f, hi = 1.0f;
     bool hit = false;
 
@@ -438,13 +480,9 @@ inline float sweepSphereConvexMesh(const Sphere& sphere,
         float mid = (lo + hi) * 0.5f;
         Vec3f samplePos = pos + disp * mid;
 
-        auto pointSupport = [&](const Vec3f&) -> Vec3f { return samplePos; };
-        Vec3f pA, pB;
-        gjk_detail::Simplex simp;
-        float distSq = gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
-        float dist = std::sqrt(distSq);
+        float distSq = pointToConvexMeshAABBDistSq(samplePos, mesh, meshPos, meshRot);
 
-        if (dist < sphere.radius) {
+        if (distSq < radiusSq) {
             hit = true;
             hi = mid;
         } else {
@@ -457,18 +495,32 @@ inline float sweepSphereConvexMesh(const Sphere& sphere,
     float toi = (lo + hi) * 0.5f;
     Vec3f hitPos = pos + disp * toi;
 
-    // Compute normal at TOI using GJK.
+    // Compute normal at TOI using AABB surface (same as initial overlap).
     {
-        auto pointSupport = [&](const Vec3f&) -> Vec3f { return hitPos; };
-        Vec3f pA, pB;
-        gjk_detail::Simplex simp;
-        gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
-        Vec3f nml = (hitPos - pB).normalized();
-        if (nml.lengthSquared() < 0.5f) {
-            nml = (hitPos - meshPos).normalized();
-            if (nml.lengthSquared() < 0.5f) nml = Vec3f(0.0f, 1.0f, 0.0f);
+        Vec3f localPt = meshRot.rotateInverse(hitPos - meshPos);
+        Vec3f he = mesh.halfExtents;
+        Vec3f center = mesh.center;
+        Vec3f closest(
+            std::max(center.x - he.x, std::min(localPt.x, center.x + he.x)),
+            std::max(center.y - he.y, std::min(localPt.y, center.y + he.y)),
+            std::max(center.z - he.z, std::min(localPt.z, center.z + he.z))
+        );
+        Vec3f diff = localPt - closest;
+        float dLen = diff.length();
+        Vec3f nLocal;
+        if (dLen > 1e-12f) {
+            nLocal = diff / dLen;
+        } else {
+            float minPen = (center.x + he.x) - std::abs(localPt.x - center.x);
+            int axis = 0;
+            float py = (center.y + he.y) - std::abs(localPt.y - center.y);
+            if (py < minPen) { minPen = py; axis = 1; }
+            float pz = (center.z + he.z) - std::abs(localPt.z - center.z);
+            if (pz < minPen) { minPen = pz; axis = 2; }
+            nLocal = Vec3f::zero();
+            nLocal[axis] = (localPt[axis] >= center[axis]) ? 1.0f : -1.0f;
         }
-        outNormal = nml;
+        outNormal = meshRot.rotate(nLocal).normalized();
     }
     outPosition = hitPos;
     return toi;
