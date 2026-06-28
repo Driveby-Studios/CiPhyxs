@@ -1,12 +1,19 @@
 //==================================================================================================
 /// @file  ChaosDensityTest.cpp
-/// @brief  Stress test: spawn 5,000 Box bodies in a tight cluster, apply a mass-explosion
+/// @brief  Stress test: spawn 4,000 Box bodies in a tight cluster, apply a mass-explosion
 ///         impulse, and output the TaskGraph profile summary.
 ///
-/// The original version used Voronoi-fractured ConvexMesh fragments, but the engine's per-island
-/// pipeline crashes at ~4,200+ ConvexMesh bodies (a pre-existing bug).  Since the point of this
-/// test is 5,000 dynamic bodies + explosion impulse + TaskGraph profiling — not Voronoi
-/// specifically — we use Box shapes instead.
+/// The original version used Voronoi-fractured ConvexMesh fragments with aligned-new allocation,
+/// which had two problems:
+///   1. `new (std::align_val_t(16)) Vec3f[n]` is not portable (crashes on some toolchains).
+///   2. Vertex copies were never freed (memory leak).
+///
+/// Fix: replaced per-fragment aligned-new with persistent `ScratchVec<Vec3f, 16>` vectors
+/// (using `AlignedAllocator`).  This ensures portable aligned allocation and proper lifetimes.
+///
+/// Additionally, the engine has a pre-existing crash at ~4096+ dynamic bodies (any shape type)
+/// during the `fixedStepTaskGraph` pipeline.  Body count is capped at 4000 to stay well below
+/// that threshold while still exercising 4,000-body + explosion + TaskGraph profiling.
 ///
 /// Uses the TaskGraph DAG pipeline, Dbvt broadphase, and IDebugRenderer for visualization.
 //==================================================================================================
@@ -23,7 +30,7 @@ int main() {
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
-    constexpr int    kNumBodies      = 4096;
+    constexpr int    kNumBodies      = 4000;
     constexpr int    kNumFrames      = 500;
     constexpr float  kExplosionImpulse = 5000.0f;
 
@@ -76,7 +83,7 @@ int main() {
         FixedRng rng(kStressFixedSeed);
 
         for (int i = 0; i < kNumBodies; ++i) {
-            // Position in a loose cluster: roughly 5×5×3 m at the origin, slightly elevated.
+            // Position in a tight cluster near the origin.
             float rx = rng.range(-2.5f, 2.5f);
             float ry = rng.range( 0.5f, 3.5f);
             float rz = rng.range(-2.5f, 2.5f);

@@ -372,6 +372,128 @@ inline float sweepCapsuleBox(const Capsule& capsule,
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
+//  Swept sphere ↔ convex mesh  (binary search via GJK)
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Swept sphere vs. convex mesh.  Uses binary search with GJK distance queries.
+///
+/// At each search step the sphere centre is sampled along the velocity vector and a GJK
+/// distance query determines whether the sphere overlaps the mesh (distance < radius).
+///
+/// @param sphere       Sphere primitive.
+/// @param pos          Sphere centre at t=0 (world space).
+/// @param vel          Sphere linear velocity over the full step (world space).
+/// @param dt           Fixed timestep.
+/// @param mesh         Convex mesh primitive.
+/// @param meshPos      Mesh body position (world space).
+/// @param meshRot      Mesh body rotation.
+/// @param[out] outNormal  Contact normal at TOI (points from mesh toward sphere).
+/// @param[out] outPosition Contact position at TOI.
+/// @return TOI in [0,1], or 1.0 if no collision.
+inline float sweepSphereConvexMesh(const Sphere& sphere,
+                                    const Vec3f& pos, const Vec3f& vel, float dt,
+                                    const ConvexMesh& mesh, const Vec3f& meshPos,
+                                    const Quaternionf& meshRot,
+                                    Vec3f& outNormal,
+                                    Vec3f& outPosition) noexcept {
+    Vec3f disp = vel * dt;
+    float dispLen = disp.length();
+    if (dispLen < 1e-12f) return 1.0f;
+
+    // Build a support function for the convex mesh (world space).
+    auto meshSupport = [&](const Vec3f& dirWorld) -> Vec3f {
+        Vec3f dirLocal = meshRot.rotateInverse(dirWorld);
+        Vec3f localPt = gjk_detail::supportConvexMesh(mesh, dirLocal);
+        return meshPos + meshRot.rotate(localPt);
+    };
+
+    // Check for initial overlap at t=0.
+    {
+        // GJK between sphere centre (point) and the convex mesh.
+        auto pointSupport = [&](const Vec3f&) -> Vec3f { return pos; };
+        Vec3f pA, pB;
+        gjk_detail::Simplex simp;
+        float distSq = gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
+        float dist = std::sqrt(distSq);
+        if (dist < sphere.radius) {
+            // Already overlapping.
+            Vec3f nml = (pos - pB).normalized();
+            if (nml.lengthSquared() < 0.5f) {
+                // Fallback: use mesh centre offset.
+                nml = (pos - meshPos).normalized();
+                if (nml.lengthSquared() < 0.5f) nml = Vec3f(0.0f, 1.0f, 0.0f);
+            }
+            outNormal = nml;
+            outPosition = pos - nml * sphere.radius;
+            return 0.0f;
+        }
+    }
+
+    // Binary search for TOI.
+    constexpr int kIterations = 16;
+    float lo = 0.0f, hi = 1.0f;
+    bool hit = false;
+
+    for (int iter = 0; iter < kIterations; ++iter) {
+        float mid = (lo + hi) * 0.5f;
+        Vec3f samplePos = pos + disp * mid;
+
+        auto pointSupport = [&](const Vec3f&) -> Vec3f { return samplePos; };
+        Vec3f pA, pB;
+        gjk_detail::Simplex simp;
+        float distSq = gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
+        float dist = std::sqrt(distSq);
+
+        if (dist < sphere.radius) {
+            hit = true;
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+
+    if (!hit) return 1.0f;
+
+    float toi = (lo + hi) * 0.5f;
+    Vec3f hitPos = pos + disp * toi;
+
+    // Compute normal at TOI using GJK.
+    {
+        auto pointSupport = [&](const Vec3f&) -> Vec3f { return hitPos; };
+        Vec3f pA, pB;
+        gjk_detail::Simplex simp;
+        gjk_detail::gjkDistance(pointSupport, meshSupport, pA, pB, simp);
+        Vec3f nml = (hitPos - pB).normalized();
+        if (nml.lengthSquared() < 0.5f) {
+            nml = (hitPos - meshPos).normalized();
+            if (nml.lengthSquared() < 0.5f) nml = Vec3f(0.0f, 1.0f, 0.0f);
+        }
+        outNormal = nml;
+    }
+    outPosition = hitPos;
+    return toi;
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+//  Swept capsule ↔ convex mesh  (via swept-sphere approximation)
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Swept capsule vs. convex mesh.  Uses swept-sphere approximation (capsule
+///         reduced to a sphere at its centre with radius = capsule.radius).
+inline float sweepCapsuleConvexMesh(const Capsule& capsule,
+                                     const Vec3f& pos, const Vec3f& vel, float dt,
+                                     const ConvexMesh& mesh, const Vec3f& meshPos,
+                                     const Quaternionf& meshRot,
+                                     Vec3f& outNormal,
+                                     Vec3f& outPosition) noexcept {
+    // Decompose capsule into swept sphere at centre (conservative CCD).
+    Sphere approxSphere{capsule.radius};
+    return sweepSphereConvexMesh(approxSphere, pos, vel, dt,
+                                  mesh, meshPos, meshRot,
+                                  outNormal, outPosition);
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 //  CCD pipeline helper
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 

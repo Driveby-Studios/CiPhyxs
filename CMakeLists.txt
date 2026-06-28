@@ -97,7 +97,6 @@ if(CIPHYXS_BUILD_TESTS)
         add_test(NAME ${name} COMMAND ${name})
     endforeach()
 
-    # Register a custom target to run all tests.
     # ─── Stress-Test Suite ──────────────────────────────────────────────────────────────────────
     set(STRESS_TEST_SOURCES
         Stress_Tests/DeepStackTest.cpp
