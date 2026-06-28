@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_sap.dir/test_sap.cpp.obj"
-  "CMakeFiles/test_sap.dir/test_sap.cpp.obj.d"
+  "CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj"
+  "CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj.d"
   "libtest_sap.dll.a"
   "test_sap.exe"
   "test_sap.exe.manifest"

@@ -92,7 +92,7 @@ int main() {
                     proj.linearVelocity = velocity;
                     proj.restitution   = 0.0f;
                     proj.friction      = 0.3f;
-                    proj.ccdEnabled    = true;          // critical: enable CCD for high velocity
+                    proj.ccdMode       = CcdMode::Cast;  // critical: enable CCD for high velocity
                     proj.startActive   = true;
 
                     world.createBody(proj);

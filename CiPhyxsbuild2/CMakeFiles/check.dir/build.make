@@ -65,24 +65,24 @@ include CMakeFiles/check.dir/compiler_depend.make
 # Include the progress variables for this target.
 include CMakeFiles/check.dir/progress.make
 
-CMakeFiles/check: E:/CiPhyxs/test_alignment.cpp
-CMakeFiles/check: E:/CiPhyxs/test_collision.cpp
-CMakeFiles/check: E:/CiPhyxs/test_final.cpp
-CMakeFiles/check: E:/CiPhyxs/test_joints.cpp
-CMakeFiles/check: E:/CiPhyxs/test_new_features.cpp
-CMakeFiles/check: E:/CiPhyxs/test_parallel.cpp
-CMakeFiles/check: E:/CiPhyxs/test_sap.cpp
-CMakeFiles/check: E:/CiPhyxs/test_convexmesh.cpp
-CMakeFiles/check: E:/CiPhyxs/test_trimesh.cpp
-CMakeFiles/check: E:/CiPhyxs/test_ccd.cpp
-CMakeFiles/check: E:/CiPhyxs/test_ragdoll.cpp
-CMakeFiles/check: E:/CiPhyxs/test_dbvt.cpp
-CMakeFiles/check: E:/CiPhyxs/test_contactreduction.cpp
-CMakeFiles/check: E:/CiPhyxs/test_vehicle.cpp
-CMakeFiles/check: E:/CiPhyxs/test_character.cpp
-CMakeFiles/check: E:/CiPhyxs/test_taskgraph.cpp
-CMakeFiles/check: E:/CiPhyxs/test_softbody.cpp
-CMakeFiles/check: E:/CiPhyxs/test_fracture.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_alignment.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_collision.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_final.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_joints.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_new_features.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_parallel.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_sap.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_convexmesh.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_trimesh.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_ccd.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_ragdoll.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_dbvt.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_contactreduction.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_vehicle.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_character.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_taskgraph.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_softbody.cpp
+CMakeFiles/check: E:/CiPhyxs/Tests/test_fracture.cpp
 	"C:\Program Files\CMake\bin\ctest.exe" --output-on-failure
 
 CMakeFiles/check.dir/codegen:

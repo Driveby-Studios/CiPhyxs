@@ -71,29 +71,29 @@ include CMakeFiles/test_parallel.dir/flags.make
 CMakeFiles/test_parallel.dir/codegen:
 .PHONY : CMakeFiles/test_parallel.dir/codegen
 
-CMakeFiles/test_parallel.dir/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/flags.make
-CMakeFiles/test_parallel.dir/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/includes_CXX.rsp
-CMakeFiles/test_parallel.dir/test_parallel.cpp.obj: E:/CiPhyxs/test_parallel.cpp
-CMakeFiles/test_parallel.dir/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_parallel.dir/test_parallel.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_parallel.dir/test_parallel.cpp.obj -MF CMakeFiles\test_parallel.dir\test_parallel.cpp.obj.d -o CMakeFiles\test_parallel.dir\test_parallel.cpp.obj -c E:\CiPhyxs\test_parallel.cpp
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/flags.make
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/includes_CXX.rsp
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj: E:/CiPhyxs/Tests/test_parallel.cpp
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj: CMakeFiles/test_parallel.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj -MF CMakeFiles\test_parallel.dir\Tests\test_parallel.cpp.obj.d -o CMakeFiles\test_parallel.dir\Tests\test_parallel.cpp.obj -c E:\CiPhyxs\Tests\test_parallel.cpp
 
-CMakeFiles/test_parallel.dir/test_parallel.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_parallel.dir/test_parallel.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_parallel.cpp > CMakeFiles\test_parallel.dir\test_parallel.cpp.i
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_parallel.cpp > CMakeFiles\test_parallel.dir\Tests\test_parallel.cpp.i
 
-CMakeFiles/test_parallel.dir/test_parallel.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_parallel.dir/test_parallel.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_parallel.cpp -o CMakeFiles\test_parallel.dir\test_parallel.cpp.s
+CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_parallel.cpp -o CMakeFiles\test_parallel.dir\Tests\test_parallel.cpp.s
 
 # Object files for target test_parallel
 test_parallel_OBJECTS = \
-"CMakeFiles/test_parallel.dir/test_parallel.cpp.obj"
+"CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj"
 
 # External object files for target test_parallel
 test_parallel_EXTERNAL_OBJECTS =
 
-test_parallel.exe: CMakeFiles/test_parallel.dir/test_parallel.cpp.obj
+test_parallel.exe: CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj
 test_parallel.exe: CMakeFiles/test_parallel.dir/build.make
 test_parallel.exe: CMakeFiles/test_parallel.dir/linkLibs.rsp
 test_parallel.exe: CMakeFiles/test_parallel.dir/objects1.rsp

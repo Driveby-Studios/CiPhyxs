@@ -89,12 +89,15 @@ int main() {
                 world.createBody(ground);
             }
 
-            // Spawn `numBodies` dynamic boxes in a tight cluster.
+            // Spawn `numBodies` dynamic boxes in a wide area to avoid O(n²) pair explosion
+            // in the broadphase.  A 50 m spread ensures most bodies do not overlap in the
+            // broadphase, keeping pair generation O(n) rather than O(n²).
+            constexpr float kSpread = 50.0f;
             FixedRng rng(kStressFixedSeed);
             for (std::size_t i = 0; i < numBodies; ++i) {
-                float rx = rng.range(-2.5f, 2.5f);
-                float ry = rng.range(0.5f, 4.0f);
-                float rz = rng.range(-2.5f, 2.5f);
+                float rx = rng.range(-kSpread, kSpread);
+                float ry = rng.range(0.5f, kSpread);
+                float rz = rng.range(-kSpread, kSpread);
 
                 RigidBodyDesc box;
                 box.mass        = 0.5f;
@@ -153,6 +156,8 @@ int main() {
                    BroadphaseType::SpatialHash, kFramesShort),
         runSubTest("SIMD-BruteForce + Sequential pipeline, 4096 bodies", kBodyCount4096, false,
                    BroadphaseType::SimdBruteForce, kFramesShort),
+        runSubTest("Dbvt + TaskGraph pipeline, 5000 bodies", kBodyCount5000, true,
+                   BroadphaseType::Dbvt, kFramesShort),
         runSubTest("SpatialHash + TaskGraph pipeline, 5000 bodies", kBodyCount5000, true,
                    BroadphaseType::SpatialHash, kFramesShort),
     };

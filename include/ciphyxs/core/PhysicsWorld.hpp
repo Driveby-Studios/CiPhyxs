@@ -1431,7 +1431,7 @@ private:
                 for (auto h : island.bodies) {
                     if (m_bodies.activeFlags[h]
                         && m_bodies.motionTypes[h] == MotionType::Dynamic
-                        && m_bodies.ccdFlags[h]
+                        && static_cast<CcdMode>(m_bodies.ccdModes[h]) != CcdMode::None
                         && m_bodies.linearVelocities[h].length() >= speedThresh
                         && m_bodies.shapeCount[h] > 0) {
                         hasCCD = true;
@@ -1565,14 +1565,15 @@ private:
 
     void integrateForces(float dt) {
         m_bodies.clearForces();
+        auto h = m_bodies.hot();  // solver-hot view
 
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
             if (!m_bodies.activeFlags[i]) continue;
             if (m_bodies.motionTypes[i] == MotionType::Dynamic) {
-                float mInv = m_bodies.inverseMasses[i];
+                float mInv = h.inverseMasses[i];
                 if (mInv > 0.0f) {
                     // Gravity.
-                    m_bodies.forces[i] += m_config.gravity / mInv;
+                    h.forces[i] += m_config.gravity / mInv;
 
                     // Linear Rayleigh damping: F_damp = -c · v.
                     // Per-body damping overrides config when set (> 0).
@@ -1580,7 +1581,7 @@ private:
                         ? m_bodies.linearDamping[i]
                         : m_config.linearDamping;
                     if (dampLin > 0.0f) {
-                        m_bodies.forces[i] += -dampLin * m_bodies.linearVelocities[i];
+                        h.forces[i] += -dampLin * h.linearVelocities[i];
                     }
                 }
 
@@ -1589,7 +1590,7 @@ private:
                     ? m_bodies.angularDamping[i]
                     : m_config.angularDamping;
                 if (dampAng > 0.0f) {
-                    m_bodies.torques[i] += -dampAng * m_bodies.angularVelocities[i];
+                    h.torques[i] += -dampAng * h.angularVelocities[i];
                 }
             }
         }
@@ -1606,52 +1607,54 @@ private:
     // ────────────────────────────────────────────────────────────────────────────────────────────
 
     void integrateVelocities(float dt) {
+        auto h = m_bodies.hot();  // solver-hot view
+
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
             if (!m_bodies.activeFlags[i]) continue;
             if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
 
-            float invM = m_bodies.inverseMasses[i];
+            float invM = h.inverseMasses[i];
             if (invM > 0.0f) {
-                Vec3f accel = m_bodies.forces[i] * invM;
-                m_bodies.linearVelocities[i] += accel * dt;
+                Vec3f accel = h.forces[i] * invM;
+                h.linearVelocities[i] += accel * dt;
             }
 
             // Angular: α = I_w⁻¹ · τ = R · (I_local⁻¹ · (Rᵀ · τ))
-            Quaternionf q = m_bodies.rotations[i];
-            Vec3f tauLocal  = q.rotateInverse(m_bodies.torques[i]);
+            Quaternionf q = h.rotations[i];
+            Vec3f tauLocal  = q.rotateInverse(h.torques[i]);
             Vec3f alphaLocal = Vec3f(
-                tauLocal.x * m_bodies.inverseInertiaDiag[i].x,
-                tauLocal.y * m_bodies.inverseInertiaDiag[i].y,
-                tauLocal.z * m_bodies.inverseInertiaDiag[i].z
+                tauLocal.x * h.inverseInertiaDiag[i].x,
+                tauLocal.y * h.inverseInertiaDiag[i].y,
+                tauLocal.z * h.inverseInertiaDiag[i].z
             );
-            m_bodies.angularVelocities[i] += q.rotate(alphaLocal) * dt;
+            h.angularVelocities[i] += q.rotate(alphaLocal) * dt;
 
             // ── NaN/Inf guard on velocities ───────────────────────────────────────────
-            if (!std::isfinite(m_bodies.linearVelocities[i].x) ||
-                !std::isfinite(m_bodies.linearVelocities[i].y) ||
-                !std::isfinite(m_bodies.linearVelocities[i].z)) {
+            if (!std::isfinite(h.linearVelocities[i].x) ||
+                !std::isfinite(h.linearVelocities[i].y) ||
+                !std::isfinite(h.linearVelocities[i].z)) {
                 std::fprintf(stderr,
                     "[CiPhyxs] NaN/Inf linear velocity in body %zu at step %llu — "
                     "clamping to zero\n",
                     i, static_cast<unsigned long long>(m_stepCount));
-                m_bodies.linearVelocities[i] = Vec3f::zero();
+                h.linearVelocities[i] = Vec3f::zero();
             }
-            if (!std::isfinite(m_bodies.angularVelocities[i].x) ||
-                !std::isfinite(m_bodies.angularVelocities[i].y) ||
-                !std::isfinite(m_bodies.angularVelocities[i].z)) {
+            if (!std::isfinite(h.angularVelocities[i].x) ||
+                !std::isfinite(h.angularVelocities[i].y) ||
+                !std::isfinite(h.angularVelocities[i].z)) {
                 std::fprintf(stderr,
                     "[CiPhyxs] NaN/Inf angular velocity in body %zu at step %llu — "
                     "clamping to zero\n",
                     i, static_cast<unsigned long long>(m_stepCount));
-                m_bodies.angularVelocities[i] = Vec3f::zero();
+                h.angularVelocities[i] = Vec3f::zero();
             }
         }
     }
 
     // ─── Phase 2b: Continuous Collision Detection (CCD) ─────────────────────────────────────
     //
-    //  Runs after velocity integration, before collision detection.  For each body that has
-    //  `ccdEnabled == true`, we test the swept shape against all static/kinematic obstacles
+    //  Runs after velocity integration, before collision detection.  For each body with a
+    //  non-None CcdMode, we test the swept shape against all static/kinematic obstacles
     //  and correct position/velocity if a TOI < 1 is found.
     //
     //  Only bodies moving faster than `m_config.ccdSpeedThreshold` are processed.
@@ -1659,39 +1662,45 @@ private:
 
     void runCCD(float dt) {
         float speedThresh = m_config.ccdSpeedThreshold;
+        auto h = m_bodies.hot();  // hot view for velocity checks
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
             if (!m_bodies.activeFlags[i]) continue;
             if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
-            if (!m_bodies.ccdFlags[i]) continue;
-            if (m_bodies.linearVelocities[i].length() < speedThresh) continue;
+            CcdMode mode = static_cast<CcdMode>(m_bodies.ccdModes[i]);
+            if (mode == CcdMode::None) continue;
+            if (h.linearVelocities[i].length() < speedThresh) continue;
             if (m_bodies.shapeCount[i] == 0) continue;
 
-            RigidBodyHandle h = static_cast<RigidBodyHandle>(i);
-            ccdResolveBody(h, dt, m_bodies, m_shapes,
-                           m_bodies.restitutions[h],
-                           m_bodies.frictions[h]);
+            RigidBodyHandle hh = static_cast<RigidBodyHandle>(i);
+            ccdResolveBody(hh, dt, m_bodies, m_shapes,
+                           m_bodies.restitutions[hh],
+                           m_bodies.frictions[hh],
+                           mode);
         }
     }
 
     /// @brief  Run CCD on a specific subset of bodies (for per-island CCD tasks).
     ///
     /// The caller is responsible for filtering: this method processes every handle
-    /// in the span, applying the standard speed/active/CCD-flag checks per body.
+    /// in the span, applying the standard speed/active/CCD-mode checks per body.
     ///
     /// @param bodies  Span of RigidBodyHandles to test for CCD.
     /// @param dt      Fixed sub-step duration.
     void runCCDForBodies(std::span<const RigidBodyHandle> bodies, float dt) {
         float speedThresh = m_config.ccdSpeedThreshold;
-        for (auto h : bodies) {
-            if (!m_bodies.activeFlags[h]) continue;
-            if (m_bodies.motionTypes[h] != MotionType::Dynamic) continue;
-            if (!m_bodies.ccdFlags[h]) continue;
-            if (m_bodies.linearVelocities[h].length() < speedThresh) continue;
-            if (m_bodies.shapeCount[h] == 0) continue;
+        auto h = m_bodies.hot();  // hot view for velocity checks
+        for (auto bh : bodies) {
+            if (!m_bodies.activeFlags[bh]) continue;
+            if (m_bodies.motionTypes[bh] != MotionType::Dynamic) continue;
+            CcdMode mode = static_cast<CcdMode>(m_bodies.ccdModes[bh]);
+            if (mode == CcdMode::None) continue;
+            if (h.linearVelocities[bh].length() < speedThresh) continue;
+            if (m_bodies.shapeCount[bh] == 0) continue;
 
-            ccdResolveBody(h, dt, m_bodies, m_shapes,
-                           m_bodies.restitutions[h],
-                           m_bodies.frictions[h]);
+            ccdResolveBody(bh, dt, m_bodies, m_shapes,
+                           m_bodies.restitutions[bh],
+                           m_bodies.frictions[bh],
+                           mode);
         }
     }
 
@@ -1934,43 +1943,45 @@ private:
     // ─── Phase 7: Position integration ──────────────────────────────────────────────────────────
 
     void integratePositions(float dt) {
+        auto h = m_bodies.hot();  // solver-hot view
+
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
             if (!m_bodies.activeFlags[i]) continue;
             if (m_bodies.motionTypes[i] == MotionType::Static) continue;
 
             // Linear.
-            m_bodies.positions[i] += m_bodies.linearVelocities[i] * dt;
+            h.positions[i] += h.linearVelocities[i] * dt;
 
             if (m_bodies.motionTypes[i] == MotionType::Dynamic) {
                 // Angular: q' = q + ½ * ω * q * dt
-                Vec3f        w  = m_bodies.angularVelocities[i];
-                Quaternionf  dq = Quaternionf(0.0f, w.x, w.y, w.z) * m_bodies.rotations[i];
+                Vec3f        w  = h.angularVelocities[i];
+                Quaternionf  dq = Quaternionf(0.0f, w.x, w.y, w.z) * h.rotations[i];
                 dq.w *= 0.5f * dt;
                 dq.x *= 0.5f * dt;
                 dq.y *= 0.5f * dt;
                 dq.z *= 0.5f * dt;
 
-                m_bodies.rotations[i].w += dq.w;
-                m_bodies.rotations[i].x += dq.x;
-                m_bodies.rotations[i].y += dq.y;
-                m_bodies.rotations[i].z += dq.z;
+                h.rotations[i].w += dq.w;
+                h.rotations[i].x += dq.x;
+                h.rotations[i].y += dq.y;
+                h.rotations[i].z += dq.z;
 
-                m_bodies.rotations[i].normalize();
-                m_bodies.inertiaRotations[i] = m_bodies.rotations[i];
+                h.rotations[i].normalize();
+                h.inertiaRotations[i] = h.rotations[i];
             }
 
             // ── NaN/Inf guard ────────────────────────────────────────────────────────
             // Catches simulation instability early (applies to all simulation paths
             // including the task-graph pipeline).  In a conforming IEEE-754 build,
             // std::isfinite is a single integer-compare instruction per component.
-            if (!std::isfinite(m_bodies.positions[i].x) ||
-                !std::isfinite(m_bodies.positions[i].y) ||
-                !std::isfinite(m_bodies.positions[i].z)) {
+            if (!std::isfinite(h.positions[i].x) ||
+                !std::isfinite(h.positions[i].y) ||
+                !std::isfinite(h.positions[i].z)) {
                 std::fprintf(stderr,
                     "[CiPhyxs] NaN/Inf position in body %zu at step %llu — simulation unstable\n",
                     i, static_cast<unsigned long long>(m_stepCount));
                 // Clamp to zero to prevent cascading corruption.
-                m_bodies.positions[i] = Vec3f::zero();
+                h.positions[i] = Vec3f::zero();
             }
         }
     }
@@ -2019,11 +2030,13 @@ private:
     // ─── Phase 8: Sleep management ──────────────────────────────────────────────────────────────
 
     void updateSleep(float dt) {
+        auto h = m_bodies.hot();  // hot view for velocity reads
+
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
             if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
 
-            float eKin = m_bodies.linearVelocities[i].lengthSquared()
-                       + m_bodies.angularVelocities[i].lengthSquared();
+            float eKin = h.linearVelocities[i].lengthSquared()
+                       + h.angularVelocities[i].lengthSquared();
 
             if (eKin < m_config.sleepEnergyThreshold) {
                 m_bodies.sleepTimers[i] += dt;

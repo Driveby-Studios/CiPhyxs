@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/CiPhyxs/test_trimesh.cpp" "CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj" "gcc" "CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj.d"
+  "E:/CiPhyxs/Tests/test_trimesh.cpp" "CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj" "gcc" "CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

@@ -233,7 +233,7 @@ int main() {
         body.position = Vec3f(-10, 5, 0);
         body.linearVelocity = Vec3f(100, 0, 0);
         body.setShape(meshShape);
-        body.ccdEnabled = true;
+        body.ccdMode = CcdMode::Cast;
         body.motionType = MotionType::Dynamic;
         RigidBodyHandle h = world.createBody(body);
 

@@ -91,20 +91,22 @@ public:
 
         if (manifolds.empty()) return;
 
+        auto h = bodies.hot();  // solver-hot view
+
         // Phase 1: Warm starting.
         if (config.enableWarmStart) {
-            warmStart(manifolds, bodies, config);
+            warmStart(manifolds, h, config);
         }
 
         // Phase 2: Main solver loop.
         for (std::uint32_t iter = 0; iter < config.numIterations; ++iter) {
             for (auto& manifold : manifolds) {
-                solveManifold(dt, manifold, bodies, config);
+                solveManifold(dt, manifold, h, config);
             }
         }
 
         // Phase 3: Split-impulse positional correction (improves stacking stability).
-        positionalSolve(bodies, manifolds, config);
+        positionalSolve(h, manifolds, config);
     }
 
     /// @brief  Split-impulse positional correction to resolve residual interpenetration.
@@ -115,7 +117,7 @@ public:
     /// directly to positions and rotations only.
     ///
     /// A small penetration slop is allowed to prevent jittering.
-    void positionalSolve(RigidBodyStorage& bodies,
+    void positionalSolve(RigidBodyHotSpan h,
                          std::vector<ContactManifold>& manifolds,
                          const SolverConfig& config) const noexcept {
         if (manifolds.empty()) return;
@@ -131,19 +133,19 @@ public:
                 RigidBodyHandle hA = manifold.bodyA;
                 RigidBodyHandle hB = manifold.bodyB;
 
-                float invMassA = bodies.inverseMasses[hA];
-                float invMassB = bodies.inverseMasses[hB];
-                Vec3f invInertiaA = bodies.inverseInertiaDiag[hA];
-                Vec3f invInertiaB = bodies.inverseInertiaDiag[hB];
-                Quaternionf inertiaRotA = bodies.inertiaRotations[hA];
-                Quaternionf inertiaRotB = bodies.inertiaRotations[hB];
+                float invMassA = h.inverseMasses[hA];
+                float invMassB = h.inverseMasses[hB];
+                Vec3f invInertiaA = h.inverseInertiaDiag[hA];
+                Vec3f invInertiaB = h.inverseInertiaDiag[hB];
+                Quaternionf inertiaRotA = h.inertiaRotations[hA];
+                Quaternionf inertiaRotB = h.inertiaRotations[hB];
 
                 for (int p = 0; p < manifold.pointCount; ++p) {
                     auto& pt = manifold.points[p];
                     if (pt.penetration <= kSlop) continue;
 
-                    Vec3f rA = pt.position - bodies.positions[hA];
-                    Vec3f rB = pt.position - bodies.positions[hB];
+                    Vec3f rA = pt.position - h.positions[hA];
+                    Vec3f rB = pt.position - h.positions[hB];
                     Vec3f n  = pt.normal;
 
                     // Effective mass (same formula as velocity solver).
@@ -173,10 +175,10 @@ public:
 
                     // Apply linear position correction.
                     if (invMassA > 0.0f) {
-                        bodies.positions[hA] -= corrVec * invMassA;
+                        h.positions[hA] -= corrVec * invMassA;
                     }
                     if (invMassB > 0.0f) {
-                        bodies.positions[hB] += corrVec * invMassB;
+                        h.positions[hB] += corrVec * invMassB;
                     }
 
                     // Apply angular position correction (small rotation to follow contact torque).
@@ -190,14 +192,14 @@ public:
                             localTorqueA.z * invInertiaA.z);
                         // q' = q + ½ * Δθ * q
                         Quaternionf dqA = Quaternionf(0.0f, deltaAngleA.x, deltaAngleA.y, deltaAngleA.z)
-                                        * bodies.rotations[hA];
+                                        * h.rotations[hA];
                         dqA.w *= 0.5f; dqA.x *= 0.5f; dqA.y *= 0.5f; dqA.z *= 0.5f;
-                        bodies.rotations[hA].w += dqA.w;
-                        bodies.rotations[hA].x += dqA.x;
-                        bodies.rotations[hA].y += dqA.y;
-                        bodies.rotations[hA].z += dqA.z;
-                        bodies.rotations[hA].normalize();
-                        bodies.inertiaRotations[hA] = bodies.rotations[hA];
+                        h.rotations[hA].w += dqA.w;
+                        h.rotations[hA].x += dqA.x;
+                        h.rotations[hA].y += dqA.y;
+                        h.rotations[hA].z += dqA.z;
+                        h.rotations[hA].normalize();
+                        h.inertiaRotations[hA] = h.rotations[hA];
                     }
 
                     // Body B
@@ -209,14 +211,14 @@ public:
                             localTorqueB.y * invInertiaB.y,
                             localTorqueB.z * invInertiaB.z);
                         Quaternionf dqB = Quaternionf(0.0f, deltaAngleB.x, deltaAngleB.y, deltaAngleB.z)
-                                        * bodies.rotations[hB];
+                                        * h.rotations[hB];
                         dqB.w *= 0.5f; dqB.x *= 0.5f; dqB.y *= 0.5f; dqB.z *= 0.5f;
-                        bodies.rotations[hB].w += dqB.w;
-                        bodies.rotations[hB].x += dqB.x;
-                        bodies.rotations[hB].y += dqB.y;
-                        bodies.rotations[hB].z += dqB.z;
-                        bodies.rotations[hB].normalize();
-                        bodies.inertiaRotations[hB] = bodies.rotations[hB];
+                        h.rotations[hB].w += dqB.w;
+                        h.rotations[hB].x += dqB.x;
+                        h.rotations[hB].y += dqB.y;
+                        h.rotations[hB].z += dqB.z;
+                        h.rotations[hB].normalize();
+                        h.inertiaRotations[hB] = h.rotations[hB];
                     }
                 }
             }
@@ -260,7 +262,7 @@ private:
     // ─── Warm starting ──────────────────────────────────────────────────────────────────────────
 
     void warmStart(std::vector<ContactManifold>& manifolds,
-                   RigidBodyStorage& bodies,
+                   RigidBodyHotSpan h,
                    const SolverConfig& config) const noexcept {
 
         for (auto& manifold : manifolds) {
@@ -274,8 +276,8 @@ private:
                 RigidBodyHandle hB = manifold.bodyB;
 
                 // Compute rA, rB.
-                Vec3f rA = pt.position - bodies.positions[hA];
-                Vec3f rB = pt.position - bodies.positions[hB];
+                Vec3f rA = pt.position - h.positions[hA];
+                Vec3f rB = pt.position - h.positions[hB];
 
                 // Apply scaled-down cached impulses.
                 float scale = config.warmStartFactor;
@@ -284,7 +286,7 @@ private:
                 impulse += pt.tangent[0] * pt.tangentImpulse[0] * scale;
                 impulse += pt.tangent[1] * pt.tangentImpulse[1] * scale;
 
-                applyImpulse(bodies, hA, hB, impulse, rA, rB);
+                applyImpulse(h, hA, hB, impulse, rA, rB);
             }
         }
     }
@@ -293,24 +295,24 @@ private:
 
     void solveManifold(float dt,
                        ContactManifold& manifold,
-                       RigidBodyStorage& bodies,
+                       RigidBodyHotSpan h,
                        const SolverConfig& config) const noexcept {
 
         RigidBodyHandle hA = manifold.bodyA;
         RigidBodyHandle hB = manifold.bodyB;
 
-        float invMassA = bodies.inverseMasses[hA];
-        float invMassB = bodies.inverseMasses[hB];
-        Vec3f invInertiaA = bodies.inverseInertiaDiag[hA];
-        Vec3f invInertiaB = bodies.inverseInertiaDiag[hB];
-        Quaternionf inertiaRotA = bodies.inertiaRotations[hA];
-        Quaternionf inertiaRotB = bodies.inertiaRotations[hB];
+        float invMassA = h.inverseMasses[hA];
+        float invMassB = h.inverseMasses[hB];
+        Vec3f invInertiaA = h.inverseInertiaDiag[hA];
+        Vec3f invInertiaB = h.inverseInertiaDiag[hB];
+        Quaternionf inertiaRotA = h.inertiaRotations[hA];
+        Quaternionf inertiaRotB = h.inertiaRotations[hB];
 
         for (int p = 0; p < manifold.pointCount; ++p) {
             auto& pt = manifold.points[p];
 
-            Vec3f rA = pt.position - bodies.positions[hA];
-            Vec3f rB = pt.position - bodies.positions[hB];
+            Vec3f rA = pt.position - h.positions[hA];
+            Vec3f rB = pt.position - h.positions[hB];
             Vec3f n  = pt.normal;
 
             // Build tangent basis from normal.
@@ -326,10 +328,10 @@ private:
                                       inertiaRotA, inertiaRotB, rA, rB, t2);
 
             // Relative velocity at contact.
-            Vec3f vA = bodies.linearVelocities[hA];
-            Vec3f vB = bodies.linearVelocities[hB];
-            Vec3f wA = bodies.angularVelocities[hA];
-            Vec3f wB = bodies.angularVelocities[hB];
+            Vec3f vA = h.linearVelocities[hA];
+            Vec3f vB = h.linearVelocities[hB];
+            Vec3f wA = h.angularVelocities[hA];
+            Vec3f wB = h.angularVelocities[hB];
 
             Vec3f vRel = (vB + wB.cross(rB)) - (vA + wA.cross(rA));
             float vn = vRel.dot(n);
@@ -359,14 +361,14 @@ private:
             pt.normalImpulse = newN;
 
             Vec3f impulseN = n * appliedN;
-            applyImpulse(bodies, hA, hB, impulseN, rA, rB);
+            applyImpulse(h, hA, hB, impulseN, rA, rB);
 
             // ─── Friction impulses ──────────────────────────────────────────────────────────
             // Recompute vRel with the new velocities.
-            vA = bodies.linearVelocities[hA];
-            vB = bodies.linearVelocities[hB];
-            wA = bodies.angularVelocities[hA];
-            wB = bodies.angularVelocities[hB];
+            vA = h.linearVelocities[hA];
+            vB = h.linearVelocities[hB];
+            wA = h.angularVelocities[hA];
+            wB = h.angularVelocities[hB];
             vRel = (vB + wB.cross(rB)) - (vA + wA.cross(rA));
 
             // Two friction tangent directions.
@@ -387,7 +389,7 @@ private:
             }
 
             Vec3f impulseF = t1 * lambdaT[0] + t2 * lambdaT[1];
-            applyImpulse(bodies, hA, hB, impulseF, rA, rB);
+            applyImpulse(h, hA, hB, impulseF, rA, rB);
 
             // Cache tangents for warm start.
             pt.tangent[0] = t1;
@@ -445,33 +447,33 @@ private:
     ///
     /// delta_v_B = +impulse * invMassB
     /// delta_ω_B = +I_B⁻¹ · (rB × impulse)
-    static void applyImpulse(RigidBodyStorage& bodies,
+    static void applyImpulse(RigidBodyHotSpan h,
                               RigidBodyHandle hA, RigidBodyHandle hB,
                               const Vec3f& impulse,
                               const Vec3f& rA, const Vec3f& rB) noexcept {
         // Body A
-        float invMA = bodies.inverseMasses[hA];
+        float invMA = h.inverseMasses[hA];
         if (invMA > 0.0f) {
-            bodies.linearVelocities[hA] -= impulse * invMA;
+            h.linearVelocities[hA] -= impulse * invMA;
         }
         Vec3f torqueA = rA.cross(impulse);
-        Vec3f localA  = bodies.inertiaRotations[hA].rotateInverse(torqueA);
-        Vec3f alphaA  = Vec3f(localA.x * bodies.inverseInertiaDiag[hA].x,
-                              localA.y * bodies.inverseInertiaDiag[hA].y,
-                              localA.z * bodies.inverseInertiaDiag[hA].z);
-        bodies.angularVelocities[hA] -= bodies.rotations[hA].rotate(alphaA);
+        Vec3f localA  = h.inertiaRotations[hA].rotateInverse(torqueA);
+        Vec3f alphaA  = Vec3f(localA.x * h.inverseInertiaDiag[hA].x,
+                              localA.y * h.inverseInertiaDiag[hA].y,
+                              localA.z * h.inverseInertiaDiag[hA].z);
+        h.angularVelocities[hA] -= h.rotations[hA].rotate(alphaA);
 
         // Body B
-        float invMB = bodies.inverseMasses[hB];
+        float invMB = h.inverseMasses[hB];
         if (invMB > 0.0f) {
-            bodies.linearVelocities[hB] += impulse * invMB;
+            h.linearVelocities[hB] += impulse * invMB;
         }
         Vec3f torqueB = rB.cross(impulse);
-        Vec3f localB  = bodies.inertiaRotations[hB].rotateInverse(torqueB);
-        Vec3f alphaB  = Vec3f(localB.x * bodies.inverseInertiaDiag[hB].x,
-                              localB.y * bodies.inverseInertiaDiag[hB].y,
-                              localB.z * bodies.inverseInertiaDiag[hB].z);
-        bodies.angularVelocities[hB] += bodies.rotations[hB].rotate(alphaB);
+        Vec3f localB  = h.inertiaRotations[hB].rotateInverse(torqueB);
+        Vec3f alphaB  = Vec3f(localB.x * h.inverseInertiaDiag[hB].x,
+                              localB.y * h.inverseInertiaDiag[hB].y,
+                              localB.z * h.inverseInertiaDiag[hB].z);
+        h.angularVelocities[hB] += h.rotations[hB].rotate(alphaB);
     }
 };
 

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_convexmesh.dir/test_convexmesh.cpp.obj"
-  "CMakeFiles/test_convexmesh.dir/test_convexmesh.cpp.obj.d"
+  "CMakeFiles/test_convexmesh.dir/Tests/test_convexmesh.cpp.obj"
+  "CMakeFiles/test_convexmesh.dir/Tests/test_convexmesh.cpp.obj.d"
   "libtest_convexmesh.dll.a"
   "test_convexmesh.exe"
   "test_convexmesh.exe.manifest"

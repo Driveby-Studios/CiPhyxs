@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_fracture.dir/test_fracture.cpp.obj"
-  "CMakeFiles/test_fracture.dir/test_fracture.cpp.obj.d"
+  "CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj"
+  "CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj.d"
   "libtest_fracture.dll.a"
   "test_fracture.exe"
   "test_fracture.exe.manifest"

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_ragdoll.dir/test_ragdoll.cpp.obj"
-  "CMakeFiles/test_ragdoll.dir/test_ragdoll.cpp.obj.d"
+  "CMakeFiles/test_ragdoll.dir/Tests/test_ragdoll.cpp.obj"
+  "CMakeFiles/test_ragdoll.dir/Tests/test_ragdoll.cpp.obj.d"
   "libtest_ragdoll.dll.a"
   "test_ragdoll.exe"
   "test_ragdoll.exe.manifest"

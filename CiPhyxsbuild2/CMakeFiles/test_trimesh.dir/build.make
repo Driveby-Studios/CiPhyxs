@@ -71,29 +71,29 @@ include CMakeFiles/test_trimesh.dir/flags.make
 CMakeFiles/test_trimesh.dir/codegen:
 .PHONY : CMakeFiles/test_trimesh.dir/codegen
 
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/flags.make
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/includes_CXX.rsp
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj: E:/CiPhyxs/test_trimesh.cpp
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj -MF CMakeFiles\test_trimesh.dir\test_trimesh.cpp.obj.d -o CMakeFiles\test_trimesh.dir\test_trimesh.cpp.obj -c E:\CiPhyxs\test_trimesh.cpp
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/flags.make
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/includes_CXX.rsp
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj: E:/CiPhyxs/Tests/test_trimesh.cpp
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj: CMakeFiles/test_trimesh.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj -MF CMakeFiles\test_trimesh.dir\Tests\test_trimesh.cpp.obj.d -o CMakeFiles\test_trimesh.dir\Tests\test_trimesh.cpp.obj -c E:\CiPhyxs\Tests\test_trimesh.cpp
 
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_trimesh.dir/test_trimesh.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_trimesh.cpp > CMakeFiles\test_trimesh.dir\test_trimesh.cpp.i
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_trimesh.cpp > CMakeFiles\test_trimesh.dir\Tests\test_trimesh.cpp.i
 
-CMakeFiles/test_trimesh.dir/test_trimesh.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_trimesh.dir/test_trimesh.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_trimesh.cpp -o CMakeFiles\test_trimesh.dir\test_trimesh.cpp.s
+CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_trimesh.cpp -o CMakeFiles\test_trimesh.dir\Tests\test_trimesh.cpp.s
 
 # Object files for target test_trimesh
 test_trimesh_OBJECTS = \
-"CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj"
+"CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj"
 
 # External object files for target test_trimesh
 test_trimesh_EXTERNAL_OBJECTS =
 
-test_trimesh.exe: CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj
+test_trimesh.exe: CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj
 test_trimesh.exe: CMakeFiles/test_trimesh.dir/build.make
 test_trimesh.exe: CMakeFiles/test_trimesh.dir/linkLibs.rsp
 test_trimesh.exe: CMakeFiles/test_trimesh.dir/objects1.rsp

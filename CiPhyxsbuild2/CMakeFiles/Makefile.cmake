@@ -75,8 +75,10 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/test_fracture.dir/DependInfo.cmake"
   "CMakeFiles/DeepStackTest.dir/DependInfo.cmake"
   "CMakeFiles/TunnelingTest.dir/DependInfo.cmake"
+  "CMakeFiles/CCDConvexMeshTest.dir/DependInfo.cmake"
   "CMakeFiles/ChaosDensityTest.dir/DependInfo.cmake"
   "CMakeFiles/DeterminismTest.dir/DependInfo.cmake"
+  "CMakeFiles/MultibodyCrashTest.dir/DependInfo.cmake"
   "CMakeFiles/check.dir/DependInfo.cmake"
   "CMakeFiles/stress_check.dir/DependInfo.cmake"
   )

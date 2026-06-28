@@ -71,29 +71,29 @@ include CMakeFiles/test_dbvt.dir/flags.make
 CMakeFiles/test_dbvt.dir/codegen:
 .PHONY : CMakeFiles/test_dbvt.dir/codegen
 
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/flags.make
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/includes_CXX.rsp
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj: E:/CiPhyxs/test_dbvt.cpp
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj -MF CMakeFiles\test_dbvt.dir\test_dbvt.cpp.obj.d -o CMakeFiles\test_dbvt.dir\test_dbvt.cpp.obj -c E:\CiPhyxs\test_dbvt.cpp
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/flags.make
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/includes_CXX.rsp
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj: E:/CiPhyxs/Tests/test_dbvt.cpp
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj: CMakeFiles/test_dbvt.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj -MF CMakeFiles\test_dbvt.dir\Tests\test_dbvt.cpp.obj.d -o CMakeFiles\test_dbvt.dir\Tests\test_dbvt.cpp.obj -c E:\CiPhyxs\Tests\test_dbvt.cpp
 
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_dbvt.dir/test_dbvt.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_dbvt.cpp > CMakeFiles\test_dbvt.dir\test_dbvt.cpp.i
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_dbvt.cpp > CMakeFiles\test_dbvt.dir\Tests\test_dbvt.cpp.i
 
-CMakeFiles/test_dbvt.dir/test_dbvt.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_dbvt.dir/test_dbvt.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_dbvt.cpp -o CMakeFiles\test_dbvt.dir\test_dbvt.cpp.s
+CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_dbvt.cpp -o CMakeFiles\test_dbvt.dir\Tests\test_dbvt.cpp.s
 
 # Object files for target test_dbvt
 test_dbvt_OBJECTS = \
-"CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj"
+"CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj"
 
 # External object files for target test_dbvt
 test_dbvt_EXTERNAL_OBJECTS =
 
-test_dbvt.exe: CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj
+test_dbvt.exe: CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj
 test_dbvt.exe: CMakeFiles/test_dbvt.dir/build.make
 test_dbvt.exe: CMakeFiles/test_dbvt.dir/linkLibs.rsp
 test_dbvt.exe: CMakeFiles/test_dbvt.dir/objects1.rsp

@@ -64,6 +64,7 @@ public:
 
         if (joints.empty()) return;
 
+        auto h = bodies.hot();   // solver-hot view for constraint loops
         float invDt   = 1.0f / dt;
         float baumgarte = config.baumgarte;
 
@@ -79,7 +80,7 @@ public:
         if (config.enableWarmStart) {
             for (auto& row : rows) {
                 if (std::abs(row.impulse * config.warmStartFactor) > 1e-10f) {
-                    applyRow(row.impulse * config.warmStartFactor, row, bodies);
+                    applyRow(row.impulse * config.warmStartFactor, row, h);
                 }
             }
         }
@@ -87,7 +88,7 @@ public:
         // ── 3. Sequential‑impulse iterations ──────────────────────────────────────────────
         for (std::uint32_t iter = 0; iter < config.numIterations; ++iter) {
             for (auto& row : rows) {
-                solveRow(row, bodies);
+                solveRow(row, h);
             }
         }
 
@@ -103,7 +104,7 @@ public:
         // ── 4b. Enforce hinge angular limits ─────────────────────────────────────────────
         for (auto& joint : joints) {
             if (joint.enableLimits && joint.type == JointType::Hinge) {
-                enforceHingeLimits(joint, dt, baumgarte, bodies);
+                enforceHingeLimits(joint, dt, baumgarte, h);
             }
         }
 
@@ -131,8 +132,8 @@ public:
                 RigidBodyHandle hA = joint.bodyA;
                 RigidBodyHandle hB = joint.bodyB;
 
-                Quaternionf qA = bodies.rotations[hA];
-                Quaternionf qB = bodies.rotations[hB];
+                Quaternionf qA = h.rotations[hA];
+                Quaternionf qB = h.rotations[hB];
                 Vec3f axisWorldA = qA.rotate(joint.localAxisA).normalized();
                 Vec3f axisWorldB = qB.rotate(joint.localAxisB).normalized();
                 Vec3f axisWorld  = (axisWorldA + axisWorldB) * 0.5f;
@@ -141,14 +142,14 @@ public:
                 axisWorld /= len;
 
                 // Relative angular velocity along the hinge axis.
-                float wRel = (bodies.angularVelocities[hB] - bodies.angularVelocities[hA]).dot(axisWorld);
+                float wRel = (h.angularVelocities[hB] - h.angularVelocities[hA]).dot(axisWorld);
                 float wErr = joint.motorTargetVelocity - wRel;
 
                 // Effective mass for angular impulse along axisWorld.
-                Vec3f invInertiaA = bodies.inverseInertiaDiag[hA];
-                Vec3f invInertiaB = bodies.inverseInertiaDiag[hB];
-                Quaternionf inertiaRotA = bodies.inertiaRotations[hA];
-                Quaternionf inertiaRotB = bodies.inertiaRotations[hB];
+                Vec3f invInertiaA = h.inverseInertiaDiag[hA];
+                Vec3f invInertiaB = h.inverseInertiaDiag[hB];
+                Quaternionf inertiaRotA = h.inertiaRotations[hA];
+                Quaternionf inertiaRotB = h.inertiaRotations[hB];
 
                 Vec3f localA = inertiaRotA.rotateInverse(axisWorld);
                 float invEffA = localA.x * localA.x * invInertiaA.x
@@ -172,19 +173,19 @@ public:
                 lambda = std::clamp(lambda, -maxImpulse, maxImpulse);
 
                 // Apply to both bodies (opposite directions).
-                if (bodies.inverseMasses[hA] > 0.0f) {
+                if (h.inverseMasses[hA] > 0.0f) {
                     Vec3f localImpA = inertiaRotA.rotateInverse(axisWorld * lambda);
                     Vec3f deltaOmegaA(localImpA.x * invInertiaA.x,
                                       localImpA.y * invInertiaA.y,
                                       localImpA.z * invInertiaA.z);
-                    bodies.angularVelocities[hA] += bodies.rotations[hA].rotate(deltaOmegaA);
+                    h.angularVelocities[hA] += h.rotations[hA].rotate(deltaOmegaA);
                 }
-                if (bodies.inverseMasses[hB] > 0.0f) {
+                if (h.inverseMasses[hB] > 0.0f) {
                     Vec3f localImpB = inertiaRotB.rotateInverse(axisWorld * (-lambda));
                     Vec3f deltaOmegaB(localImpB.x * invInertiaB.x,
                                       localImpB.y * invInertiaB.y,
                                       localImpB.z * invInertiaB.z);
-                    bodies.angularVelocities[hB] += bodies.rotations[hB].rotate(deltaOmegaB);
+                    h.angularVelocities[hB] += h.rotations[hB].rotate(deltaOmegaB);
                 }
             }
         }
@@ -370,17 +371,17 @@ private:
 
     // ─── Single row solver ─────────────────────────────────────────────────────────────────────
 
-    static void solveRow(JointRow& row, RigidBodyStorage& bodies) noexcept {
+    static void solveRow(JointRow& row, RigidBodyHotSpan h) noexcept {
         if (row.effectiveMass <= 0.0f) return;
 
         RigidBodyHandle hA = row.bodyA;
         RigidBodyHandle hB = row.bodyB;
 
         // Current constraint velocity: C_dot = J · v
-        float dv = (row.linearA.dot(bodies.linearVelocities[hA])
-                  + row.angularA.dot(bodies.angularVelocities[hA])
-                  + row.linearB.dot(bodies.linearVelocities[hB])
-                  + row.angularB.dot(bodies.angularVelocities[hB]));
+        float dv = (row.linearA.dot(h.linearVelocities[hA])
+                  + row.angularA.dot(h.angularVelocities[hA])
+                  + row.linearB.dot(h.linearVelocities[hB])
+                  + row.angularB.dot(h.angularVelocities[hB]));
 
         // Desired impulse to zero C_dot + bias.
         float lambda = row.effectiveMass * (dv + row.bias);
@@ -392,7 +393,7 @@ private:
         row.impulse = newImpulse;
 
         if (std::abs(delta) > 1e-12f) {
-            applyRow(delta, row, bodies);
+            applyRow(delta, row, h);
         }
     }
 
@@ -465,13 +466,13 @@ private:
 
     static void enforceHingeLimits(const JointStorage& joint,
                                     float dt, float baumgarte,
-                                    RigidBodyStorage& bodies) noexcept {
+                                    RigidBodyHotSpan h) noexcept {
         RigidBodyHandle hA = joint.bodyA;
         RigidBodyHandle hB = joint.bodyB;
 
         // Get world-space hinge axis from body A.
-        Quaternionf qA = bodies.rotations[hA];
-        Quaternionf qB = bodies.rotations[hB];
+        Quaternionf qA = h.rotations[hA];
+        Quaternionf qB = h.rotations[hB];
         Vec3f axisWorld = qA.rotate(joint.localAxisA).normalized();
 
         // Compute relative orientation: from A to B.
@@ -505,10 +506,10 @@ private:
             float bias = baumgarte * error / dt;
 
             // Effective mass for angular impulse along axisWorld.
-            Vec3f invInertiaA = bodies.inverseInertiaDiag[hA];
-            Vec3f invInertiaB = bodies.inverseInertiaDiag[hB];
-            Quaternionf inertiaRotA = bodies.inertiaRotations[hA];
-            Quaternionf inertiaRotB = bodies.inertiaRotations[hB];
+            Vec3f invInertiaA = h.inverseInertiaDiag[hA];
+            Vec3f invInertiaB = h.inverseInertiaDiag[hB];
+            Quaternionf inertiaRotA = h.inertiaRotations[hA];
+            Quaternionf inertiaRotB = h.inertiaRotations[hB];
 
             Vec3f localA = inertiaRotA.rotateInverse(axisWorld);
             float invEffA = localA.x * localA.x * invInertiaA.x
@@ -525,8 +526,8 @@ private:
             float effMass = 1.0f / invEff;
 
             // Compute impulse to correct the error (with bias).
-            float wRel = (bodies.angularVelocities[hB]
-                        - bodies.angularVelocities[hA]).dot(axisWorld);
+            float wRel = (h.angularVelocities[hB]
+                        - h.angularVelocities[hA]).dot(axisWorld);
             float lambda = effMass * (wRel + bias);
 
             // Clamp: limit impulse should only push *toward* the valid range.
@@ -545,19 +546,19 @@ private:
             if (std::abs(lambda) < 1e-12f) return;
 
             // Apply angular impulse.
-            if (bodies.inverseMasses[hA] > 0.0f) {
+            if (h.inverseMasses[hA] > 0.0f) {
                 Vec3f localImpA = inertiaRotA.rotateInverse(axisWorld * lambda);
                 Vec3f deltaA(localImpA.x * invInertiaA.x,
                              localImpA.y * invInertiaA.y,
                              localImpA.z * invInertiaA.z);
-                bodies.angularVelocities[hA] += bodies.rotations[hA].rotate(deltaA);
+                h.angularVelocities[hA] += h.rotations[hA].rotate(deltaA);
             }
-            if (bodies.inverseMasses[hB] > 0.0f) {
+            if (h.inverseMasses[hB] > 0.0f) {
                 Vec3f localImpB = inertiaRotB.rotateInverse(axisWorld * (-lambda));
                 Vec3f deltaB(localImpB.x * invInertiaB.x,
                              localImpB.y * invInertiaB.y,
                              localImpB.z * invInertiaB.z);
-                bodies.angularVelocities[hB] += bodies.rotations[hB].rotate(deltaB);
+                h.angularVelocities[hB] += h.rotations[hB].rotate(deltaB);
             }
         }
     }
@@ -565,38 +566,38 @@ private:
     // ─── Apply a scalar impulse along a constraint row ───────────────────────────────────────
 
     static void applyRow(float lambda, const JointRow& row,
-                         RigidBodyStorage& bodies) noexcept {
+                         RigidBodyHotSpan h) noexcept {
         RigidBodyHandle hA = row.bodyA;
         RigidBodyHandle hB = row.bodyB;
 
         // ── Body A ────────────────────────────────────────────────────────────────────────
-        float invMA = bodies.inverseMasses[hA];
+        float invMA = h.inverseMasses[hA];
         if (invMA > 0.0f && row.linearA.lengthSquared() > 0.0f) {
-            bodies.linearVelocities[hA] -= lambda * invMA * row.linearA;
+            h.linearVelocities[hA] -= lambda * invMA * row.linearA;
         }
 
         if (row.angularA.lengthSquared() > 0.0f) {
             Vec3f torqueA = row.angularA * lambda;
-            Vec3f localA  = bodies.inertiaRotations[hA].rotateInverse(torqueA);
-            Vec3f alphaA(localA.x * bodies.inverseInertiaDiag[hA].x,
-                         localA.y * bodies.inverseInertiaDiag[hA].y,
-                         localA.z * bodies.inverseInertiaDiag[hA].z);
-            bodies.angularVelocities[hA] -= bodies.rotations[hA].rotate(alphaA);
+            Vec3f localA  = h.inertiaRotations[hA].rotateInverse(torqueA);
+            Vec3f alphaA(localA.x * h.inverseInertiaDiag[hA].x,
+                         localA.y * h.inverseInertiaDiag[hA].y,
+                         localA.z * h.inverseInertiaDiag[hA].z);
+            h.angularVelocities[hA] -= h.rotations[hA].rotate(alphaA);
         }
 
         // ── Body B ────────────────────────────────────────────────────────────────────────
-        float invMB = bodies.inverseMasses[hB];
+        float invMB = h.inverseMasses[hB];
         if (invMB > 0.0f && row.linearB.lengthSquared() > 0.0f) {
-            bodies.linearVelocities[hB] -= lambda * invMB * row.linearB;
+            h.linearVelocities[hB] -= lambda * invMB * row.linearB;
         }
 
         if (row.angularB.lengthSquared() > 0.0f) {
             Vec3f torqueB = row.angularB * lambda;
-            Vec3f localB  = bodies.inertiaRotations[hB].rotateInverse(torqueB);
-            Vec3f alphaB(localB.x * bodies.inverseInertiaDiag[hB].x,
-                         localB.y * bodies.inverseInertiaDiag[hB].y,
-                         localB.z * bodies.inverseInertiaDiag[hB].z);
-            bodies.angularVelocities[hB] -= bodies.rotations[hB].rotate(alphaB);
+            Vec3f localB  = h.inertiaRotations[hB].rotateInverse(torqueB);
+            Vec3f alphaB(localB.x * h.inverseInertiaDiag[hB].x,
+                         localB.y * h.inverseInertiaDiag[hB].y,
+                         localB.z * h.inverseInertiaDiag[hB].z);
+            h.angularVelocities[hB] -= h.rotations[hB].rotate(alphaB);
         }
     }
 };

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj"
-  "CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj.d"
+  "CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj"
+  "CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj.d"
   "libtest_taskgraph.dll.a"
   "test_taskgraph.exe"
   "test_taskgraph.exe.manifest"

@@ -18,8 +18,10 @@ E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/test_softbody.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/test_fracture.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/DeepStackTest.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/TunnelingTest.dir
+E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/CCDConvexMeshTest.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/ChaosDensityTest.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/DeterminismTest.dir
+E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/MultibodyCrashTest.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/check.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/stress_check.dir
 E:/CiPhyxs/CiPhyxsbuild2/CMakeFiles/test.dir

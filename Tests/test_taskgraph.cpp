@@ -618,7 +618,7 @@ int main() {
                 fast.setShape(hFastBox);
                 fast.position = Vec3f(-6, 0.4f, 0);  // overlapping AABB with ground
                 fast.linearVelocity = Vec3f(0, -50, 0);
-                fast.ccdEnabled = true;
+                fast.ccdMode = CcdMode::Cast;
                 ccdWorld.createBody(fast);
             }
 
@@ -636,7 +636,7 @@ int main() {
                 fast.setShape(hFastBox);
                 fast.position = Vec3f(6, 0.4f, 0);  // overlapping AABB with ground
                 fast.linearVelocity = Vec3f(0, -50, 0);
-                fast.ccdEnabled = true;
+                fast.ccdMode = CcdMode::Cast;
                 ccdWorld.createBody(fast);
             }
 

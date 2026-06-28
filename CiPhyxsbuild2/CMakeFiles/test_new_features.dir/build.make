@@ -71,29 +71,29 @@ include CMakeFiles/test_new_features.dir/flags.make
 CMakeFiles/test_new_features.dir/codegen:
 .PHONY : CMakeFiles/test_new_features.dir/codegen
 
-CMakeFiles/test_new_features.dir/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/flags.make
-CMakeFiles/test_new_features.dir/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/includes_CXX.rsp
-CMakeFiles/test_new_features.dir/test_new_features.cpp.obj: E:/CiPhyxs/test_new_features.cpp
-CMakeFiles/test_new_features.dir/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_new_features.dir/test_new_features.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_new_features.dir/test_new_features.cpp.obj -MF CMakeFiles\test_new_features.dir\test_new_features.cpp.obj.d -o CMakeFiles\test_new_features.dir\test_new_features.cpp.obj -c E:\CiPhyxs\test_new_features.cpp
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/flags.make
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/includes_CXX.rsp
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj: E:/CiPhyxs/Tests/test_new_features.cpp
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj: CMakeFiles/test_new_features.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj -MF CMakeFiles\test_new_features.dir\Tests\test_new_features.cpp.obj.d -o CMakeFiles\test_new_features.dir\Tests\test_new_features.cpp.obj -c E:\CiPhyxs\Tests\test_new_features.cpp
 
-CMakeFiles/test_new_features.dir/test_new_features.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_new_features.dir/test_new_features.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_new_features.cpp > CMakeFiles\test_new_features.dir\test_new_features.cpp.i
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_new_features.cpp > CMakeFiles\test_new_features.dir\Tests\test_new_features.cpp.i
 
-CMakeFiles/test_new_features.dir/test_new_features.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_new_features.dir/test_new_features.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_new_features.cpp -o CMakeFiles\test_new_features.dir\test_new_features.cpp.s
+CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_new_features.cpp -o CMakeFiles\test_new_features.dir\Tests\test_new_features.cpp.s
 
 # Object files for target test_new_features
 test_new_features_OBJECTS = \
-"CMakeFiles/test_new_features.dir/test_new_features.cpp.obj"
+"CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj"
 
 # External object files for target test_new_features
 test_new_features_EXTERNAL_OBJECTS =
 
-test_new_features.exe: CMakeFiles/test_new_features.dir/test_new_features.cpp.obj
+test_new_features.exe: CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj
 test_new_features.exe: CMakeFiles/test_new_features.dir/build.make
 test_new_features.exe: CMakeFiles/test_new_features.dir/linkLibs.rsp
 test_new_features.exe: CMakeFiles/test_new_features.dir/objects1.rsp

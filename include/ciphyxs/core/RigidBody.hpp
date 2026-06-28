@@ -9,6 +9,7 @@
 #include "AlignedAllocator.hpp"
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <vector>
 
 namespace ciphyxs {
@@ -48,6 +49,24 @@ enum class MotionType : std::uint8_t {
 };
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
+// CcdMode
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Continuous Collision Detection mode for a rigid body.
+///
+/// Controls how the CCD system prevents tunnelling for this body.
+/// Higher modes provide stronger guarantees at increased CPU cost.
+enum class CcdMode : std::uint8_t {
+    None,            ///< No CCD for this body.
+    Cast,            ///< Standard CCD sweep: cast the shape along its velocity and
+                     ///< resolve the earliest TOI.
+    ClampVelocity,   ///< Clamp the body's velocity so that `|v| * dt < boundingRadius * 0.5`.
+                     ///< Prevents tunnelling at extreme speeds without sub-stepping.
+    SubStep          ///< Automatic sub-stepping: divide the frame into N steps such that
+                     ///< each sub-step moves less than `boundingRadius * 0.5`. Most robust.
+};
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 // RigidBodyDesc
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -81,8 +100,8 @@ struct RigidBodyDesc {
     // ─── Flags ──────────────────────────────────────────────────────────────────────────────────
     MotionType motionType = MotionType::Dynamic;
     bool       startActive = true;
-    bool       ccdEnabled  = false;   ///< Enable continuous collision detection for this body.
-                                       ///< Prevents tunneling at high speeds.  Default: off.
+    CcdMode    ccdMode     = CcdMode::Cast;   ///< CCD mode for this body.
+                                              ///< Default: Cast (standard swept CCD).
 
     // ─── Compound shape support ────────────────────────────────────────────────────────────
 
@@ -112,10 +131,64 @@ struct RigidBodyDesc {
 };
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
+// RigidBodyHotSpan  — grouped view of solver-hot fields
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  A grouped span view of the solver-hot subset of RigidBodyStorage.
+///
+/// These fields are touched **multiple times per frame** by the constraint solver,
+/// integration loops, and CCD.  Grouping them together documents performance intent
+/// and enables future physical repacking (e.g. into a single AoS array) without
+/// changing call sites.
+///
+/// Cold fields (material, shape geometry, flags, sleep) are accessed directly on
+/// `RigidBodyStorage` and are NOT included here.
+///
+/// @tparam Vec3T   `Vec3f` or `const Vec3f`
+/// @tparam QuatT   `Quaternionf` or `const Quaternionf`
+/// @tparam FloatT  `float` or `const float`
+template <typename Vec3T, typename QuatT, typename FloatT>
+struct RigidBodyHotSpanT {
+    std::span<Vec3T>   positions;
+    std::span<QuatT>   rotations;
+    std::span<Vec3T>   linearVelocities;
+    std::span<Vec3T>   angularVelocities;
+    std::span<Vec3T>   forces;
+    std::span<Vec3T>   torques;
+    std::span<FloatT>  inverseMasses;
+    std::span<Vec3T>   inverseInertiaDiag;
+    std::span<QuatT>   inertiaRotations;
+
+    /// @brief  Number of bodies in the view.
+    [[nodiscard]] std::size_t size() const noexcept { return positions.size(); }
+
+    /// @brief  True when the view is empty.
+    [[nodiscard]] bool empty() const noexcept { return positions.empty(); }
+};
+
+/// @brief  Mutable hot-data span.
+using RigidBodyHotSpan = RigidBodyHotSpanT<Vec3f, Quaternionf, float>;
+
+/// @brief  Const hot-data span.
+using RigidBodyHotConstSpan = RigidBodyHotSpanT<const Vec3f, const Quaternionf, const float>;
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 // RigidBodyStorage  (Data-Oriented Design — Structure of Arrays)
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 
 /// @brief  Contiguous SoA container for all rigid bodies in the world.
+///
+/// ## Hot / cold split
+///
+/// Fields are grouped into two categories:
+///   - **HOT**  — solver-touched per-iteration (positions, velocities, masses,
+///                forces, torques).  Accessed via `hot()` which returns a
+///                `RigidBodyHotSpan` view.
+///   - **COLD** — touched once per frame or less (material, shapes, flags, sleep).
+///                Accessed directly on `RigidBodyStorage`.
+///
+/// This split improves cache utilization because solver loops only pull in the
+/// hot cache lines, leaving cold data to be evicted.
 ///
 /// ## Why SoA?
 ///
@@ -134,55 +207,87 @@ struct RigidBodyDesc {
 /// heap memory.
 struct RigidBodyStorage {
 
-    	// ─── Transform & motion state (SIMD‑aligned SoA) ──────────────────────────────────────────
-        ///
-        /// These fields use `AlignedVector` (16‑byte aligned) so that the compiler can emit
-        /// aligned SIMD load/store instructions (`movaps`/`movapd`) in solver loops and integration.
-        /// On `x86_64` with `g++ -O2 -msse4.1` this yields 15–30 % faster iteration.
-        AlignedVector<Vec3f, 16>      positions;          ///< World-space position.
-        AlignedVector<Quaternionf, 16> rotations;         ///< World-space orientation.
-        AlignedVector<Vec3f, 16>      linearVelocities;   ///< Linear velocity (world space).
-        AlignedVector<Vec3f, 16>      angularVelocities;  ///< Angular velocity (world space).
+    //
+    // ─── HOT fields (touched per-iteration by solver and integration) ────────────
+    //
+    // These fields are accessed multiple times per frame by:
+    //   - ConstraintSolver::solveManifold / positionalSolve / applyImpulse
+    //   - JointSolver::solveRow / applyRow
+    //   - PhysicsWorld::integrateForces / integrateVelocities / integratePositions
+    //   - CCD sweep in Continuous.hpp
+    //
+    // Use the hot() accessor to signal that only this subset is needed in hot loops.
+    //
 
-        // ─── Accumulated forces (cleared every step) ────────────────────────────────────────────────
-        AlignedVector<Vec3f, 16>      forces;    ///< Net force (world space).
-        AlignedVector<Vec3f, 16>      torques;   ///< Net torque (world space).
+    AlignedVector<Vec3f, 16>      positions;              ///< World-space position.
+    AlignedVector<Quaternionf, 16> rotations;             ///< World-space orientation.
+    AlignedVector<Vec3f, 16>      linearVelocities;       ///< Linear velocity (world space).
+    AlignedVector<Vec3f, 16>      angularVelocities;      ///< Angular velocity (world space).
+    AlignedVector<Vec3f, 16>      forces;                 ///< Net force (world space).
+    AlignedVector<Vec3f, 16>      torques;                ///< Net torque (world space).
+    AlignedVector<float, 16>      inverseMasses;          ///< 1/mass. 0 = infinite mass.
+    AlignedVector<Vec3f, 16>      inverseInertiaDiag;     ///< Diagonal of inverse inertia tensor (local).
+    AlignedVector<Quaternionf, 16> inertiaRotations;      ///< Orientation of the inertia frame.
 
-        // ─── Mass properties ────────────────────────────────────────────────────────────────────────
-        AlignedVector<float, 16>      inverseMasses;      ///< 1/mass. 0 = infinite mass (static/kinematic).
-        AlignedVector<Vec3f, 16>      inverseInertiaDiag; ///< Diagonal of inverse inertia tensor (local).
-        AlignedVector<Quaternionf, 16> inertiaRotations;  ///< Orientation of the inertia frame (follows rotation).
+    //
+    // ─── COLD fields (touched once per frame or less) ──────────────────────────
+    //
+    // Material, shape geometry, flags, and sleep state.  Stored separately so that
+    // solver hot loops do not pull these into cache.
+    //
 
-        // ─── Material ───────────────────────────────────────────────────────────────────────────────
-        AlignedVector<float, 16>      restitutions;
-        AlignedVector<float, 16>      frictions;
+    AlignedVector<float, 16>      restitutions;
+    AlignedVector<float, 16>      frictions;
+    AlignedVector<float, 16>      linearDamping;
+    AlignedVector<float, 16>      angularDamping;
 
-        // ─── Per-body damping (0 = use SolverConfig default) ───────────────────────────────────────
-        AlignedVector<float, 16>      linearDamping;
-        AlignedVector<float, 16>      angularDamping;
+    // Compound shapes (flat SoA arrays).
+    std::vector<ShapeHandle>       flatShapeHandles;
+    AlignedVector<Vec3f, 16>       flatShapeLocalPositions;
+    AlignedVector<Quaternionf, 16> flatShapeLocalRotations;
+    std::vector<std::uint32_t>     shapeStart;
+    std::vector<std::uint32_t>     shapeCount;
 
-    	// ─── Compound shapes (flat SoA arrays) ───────────────────────────────────────────────────
-        //
-        // Each body can carry zero or more sub-shapes, each with a local position and rotation.
-        // Sub-shapes are stored in flat arrays indexed by [shapeStart[i], shapeStart[i] + shapeCount[i]).
-        // A body with shapeCount[i] == 0 participates in no collisions.
-        //
-        // These flat arrays are NOT on the solver hot path, so they use the default `std::vector`.
-        // The local-position/rotation fields use `AlignedVector` because Vec3f/Quaternionf are
-        // `alignas(16)` and custom allocators are needed to maintain that guarantee on the heap.
+    // Flags.
+    std::vector<MotionType>        motionTypes;
+    AlignedVector<uint8_t, 16>     activeFlags;
+    AlignedVector<uint8_t, 16>     ccdModes;
+    AlignedVector<float, 16>       sleepTimers;
 
-        std::vector<ShapeHandle>  flatShapeHandles;             ///< All sub-shape handles (flat).
-        AlignedVector<Vec3f, 16>  flatShapeLocalPositions;      ///< Sub-shape local positions.
-        AlignedVector<Quaternionf, 16> flatShapeLocalRotations; ///< Sub-shape local rotations.
-        std::vector<std::uint32_t> shapeStart;                  ///< Per-body start index into flat arrays.
-        std::vector<std::uint32_t> shapeCount;                  ///< Per-body sub-shape count (0 = no collision).
+    // ─── Hot / cold accessors ───────────────────────────────────────────────────────────────
 
-    // ─── Flags ──────────────────────────────────────────────────────────────────────────────────
-    std::vector<MotionType>  motionTypes;
-    AlignedVector<uint8_t, 16> activeFlags;     ///< 1 = active, 0 = sleeping/disabled.  uint8_t (not vector<bool>)
-                                                 ///< avoids the bitset-proxy data race in worker-thread reads.
-    AlignedVector<uint8_t, 16> ccdFlags;        ///< 1 = CCD enabled, 0 = disabled.
-    AlignedVector<float, 16> sleepTimers;
+    /// @brief  Return a grouped span of solver-hot fields (mutable).
+    ///
+    /// Use this in solver and integration hot loops to signal that only the hot subset
+    /// is needed, enabling future physical repacking without changing call sites.
+    [[nodiscard]] RigidBodyHotSpan hot() noexcept {
+        return {
+            .positions        = std::span(positions),
+            .rotations        = std::span(rotations),
+            .linearVelocities = std::span(linearVelocities),
+            .angularVelocities= std::span(angularVelocities),
+            .forces           = std::span(forces),
+            .torques          = std::span(torques),
+            .inverseMasses    = std::span(inverseMasses),
+            .inverseInertiaDiag = std::span(inverseInertiaDiag),
+            .inertiaRotations = std::span(inertiaRotations),
+        };
+    }
+
+    /// @brief  Return a grouped span of solver-hot fields (const).
+    [[nodiscard]] RigidBodyHotConstSpan hot() const noexcept {
+        return {
+            .positions        = std::span<const Vec3f>(positions),
+            .rotations        = std::span<const Quaternionf>(rotations),
+            .linearVelocities = std::span<const Vec3f>(linearVelocities),
+            .angularVelocities= std::span<const Vec3f>(angularVelocities),
+            .forces           = std::span<const Vec3f>(forces),
+            .torques          = std::span<const Vec3f>(torques),
+            .inverseMasses    = std::span<const float>(inverseMasses),
+            .inverseInertiaDiag = std::span<const Vec3f>(inverseInertiaDiag),
+            .inertiaRotations = std::span<const Quaternionf>(inertiaRotations),
+        };
+    }
 
     // ─── Memory management ──────────────────────────────────────────────────────────────────────
 
@@ -208,6 +313,7 @@ struct RigidBodyStorage {
         activeFlags.reserve(count);
         shapeStart.reserve(count);
         shapeCount.reserve(count);
+        ccdModes.reserve(count);
         sleepTimers.reserve(count);
     }
 
@@ -259,7 +365,7 @@ struct RigidBodyStorage {
 
         motionTypes.emplace_back(desc.motionType);
         activeFlags.emplace_back(desc.startActive ? uint8_t(1) : uint8_t(0));
-        ccdFlags.emplace_back(desc.ccdEnabled   ? uint8_t(1) : uint8_t(0));
+        ccdModes.emplace_back(static_cast<uint8_t>(desc.ccdMode));
         sleepTimers.emplace_back(0.0f);
 
         return h;
@@ -293,7 +399,7 @@ struct RigidBodyStorage {
             // still reference the correct flat-array entries.  Unreferenced flat entries
             // accumulate as waste; a future defragment pass can clean them up.
             swap(activeFlags);
-            swap(ccdFlags);
+            swap(ccdModes);
             swap(sleepTimers);
         }
         positions.pop_back();
@@ -314,7 +420,7 @@ struct RigidBodyStorage {
         shapeCount.pop_back();
         // Flat arrays are NOT popped — their entries remain but are now unreferenced.
         activeFlags.pop_back();
-        ccdFlags.pop_back();
+        ccdModes.pop_back();
         sleepTimers.pop_back();
     }
 
@@ -335,7 +441,7 @@ struct RigidBodyStorage {
         angularDamping.clear();
         motionTypes.clear();
         activeFlags.clear();
-        ccdFlags.clear();
+        ccdModes.clear();
         flatShapeHandles.clear();
         flatShapeLocalPositions.clear();
         flatShapeLocalRotations.clear();

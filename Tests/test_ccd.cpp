@@ -64,7 +64,7 @@ int main() {
         s.setShape(hSphere);
         s.position = Vec3f(0, 10, 0);
         s.linearVelocity = Vec3f(0, -200, 0);
-        s.ccdEnabled = false;
+        s.ccdMode = CcdMode::None;
         s.restitution = 0.8f;          // Would bounce if CCD handled it
         auto sphere = world.createBody(s);
 
@@ -103,7 +103,7 @@ int main() {
         s.setShape(hSphere);
         s.position = Vec3f(0, 10, 0);
         s.linearVelocity = Vec3f(0, -200, 0);
-        s.ccdEnabled = true;
+        s.ccdMode = CcdMode::Cast;
         s.restitution = 0.0f;
         auto sphere = world.createBody(s);
 
@@ -137,7 +137,7 @@ int main() {
         s.setShape(hSphere);
         s.position = Vec3f(0, 10, 0);
         s.linearVelocity = Vec3f(0, -200, 0);
-        s.ccdEnabled = true;
+        s.ccdMode = CcdMode::Cast;
         s.restitution = 0.8f;
         auto sphere = world.createBody(s);
 
@@ -188,9 +188,10 @@ int main() {
         s.setShape(hSphereA);
         s.position = Vec3f(0, 10, 0);
         s.linearVelocity = Vec3f(0, -200, 0);
-        s.ccdEnabled = true;
+        s.ccdMode = CcdMode::Cast;
         s.restitution = 0.5f;
         worldA.createBody(s);
+
         s.setShape(hSphereB);
         worldB.createBody(s);
 
@@ -240,7 +241,7 @@ int main() {
         s1.setShape(hSphere);
         s1.position = Vec3f(-2.0f, 5.0f, 0.0f);
         s1.linearVelocity = Vec3f(0, -50, 0);
-        s1.ccdEnabled = true;
+        s1.ccdMode = CcdMode::Cast;
         s1.restitution = 0.0f;
         auto ccdSphere = world.createBody(s1);
 
@@ -249,7 +250,7 @@ int main() {
         s2.setShape(hSphere);
         s2.position = Vec3f(2.0f, 5.0f, 0.0f);
         s2.linearVelocity = Vec3f(0, -50, 0);
-        s2.ccdEnabled = false;
+        s2.ccdMode = CcdMode::None;
         s2.restitution = 0.0f;
         auto noCcdSphere = world.createBody(s2);
 

@@ -71,29 +71,29 @@ include CMakeFiles/test_fracture.dir/flags.make
 CMakeFiles/test_fracture.dir/codegen:
 .PHONY : CMakeFiles/test_fracture.dir/codegen
 
-CMakeFiles/test_fracture.dir/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/flags.make
-CMakeFiles/test_fracture.dir/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/includes_CXX.rsp
-CMakeFiles/test_fracture.dir/test_fracture.cpp.obj: E:/CiPhyxs/test_fracture.cpp
-CMakeFiles/test_fracture.dir/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_fracture.dir/test_fracture.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_fracture.dir/test_fracture.cpp.obj -MF CMakeFiles\test_fracture.dir\test_fracture.cpp.obj.d -o CMakeFiles\test_fracture.dir\test_fracture.cpp.obj -c E:\CiPhyxs\test_fracture.cpp
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/flags.make
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/includes_CXX.rsp
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj: E:/CiPhyxs/Tests/test_fracture.cpp
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj: CMakeFiles/test_fracture.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj -MF CMakeFiles\test_fracture.dir\Tests\test_fracture.cpp.obj.d -o CMakeFiles\test_fracture.dir\Tests\test_fracture.cpp.obj -c E:\CiPhyxs\Tests\test_fracture.cpp
 
-CMakeFiles/test_fracture.dir/test_fracture.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_fracture.dir/test_fracture.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_fracture.cpp > CMakeFiles\test_fracture.dir\test_fracture.cpp.i
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_fracture.cpp > CMakeFiles\test_fracture.dir\Tests\test_fracture.cpp.i
 
-CMakeFiles/test_fracture.dir/test_fracture.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_fracture.dir/test_fracture.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_fracture.cpp -o CMakeFiles\test_fracture.dir\test_fracture.cpp.s
+CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_fracture.cpp -o CMakeFiles\test_fracture.dir\Tests\test_fracture.cpp.s
 
 # Object files for target test_fracture
 test_fracture_OBJECTS = \
-"CMakeFiles/test_fracture.dir/test_fracture.cpp.obj"
+"CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj"
 
 # External object files for target test_fracture
 test_fracture_EXTERNAL_OBJECTS =
 
-test_fracture.exe: CMakeFiles/test_fracture.dir/test_fracture.cpp.obj
+test_fracture.exe: CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj
 test_fracture.exe: CMakeFiles/test_fracture.dir/build.make
 test_fracture.exe: CMakeFiles/test_fracture.dir/linkLibs.rsp
 test_fracture.exe: CMakeFiles/test_fracture.dir/objects1.rsp

@@ -431,6 +431,19 @@ TunnelingTest/fast:
 .PHONY : TunnelingTest/fast
 
 #=============================================================================
+# Target rules for targets named CCDConvexMeshTest
+
+# Build rule for target.
+CCDConvexMeshTest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CCDConvexMeshTest
+.PHONY : CCDConvexMeshTest
+
+# fast build rule for target.
+CCDConvexMeshTest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CCDConvexMeshTest.dir\build.make CMakeFiles/CCDConvexMeshTest.dir/build
+.PHONY : CCDConvexMeshTest/fast
+
+#=============================================================================
 # Target rules for targets named ChaosDensityTest
 
 # Build rule for target.
@@ -457,6 +470,19 @@ DeterminismTest/fast:
 .PHONY : DeterminismTest/fast
 
 #=============================================================================
+# Target rules for targets named MultibodyCrashTest
+
+# Build rule for target.
+MultibodyCrashTest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 MultibodyCrashTest
+.PHONY : MultibodyCrashTest
+
+# fast build rule for target.
+MultibodyCrashTest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\MultibodyCrashTest.dir\build.make CMakeFiles/MultibodyCrashTest.dir/build
+.PHONY : MultibodyCrashTest/fast
+
+#=============================================================================
 # Target rules for targets named check
 
 # Build rule for target.
@@ -481,6 +507,30 @@ stress_check: cmake_check_build_system
 stress_check/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress_check.dir\build.make CMakeFiles/stress_check.dir/build
 .PHONY : stress_check/fast
+
+Stress_Tests/CCDConvexMeshTest.obj: Stress_Tests/CCDConvexMeshTest.cpp.obj
+.PHONY : Stress_Tests/CCDConvexMeshTest.obj
+
+# target to build an object file
+Stress_Tests/CCDConvexMeshTest.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CCDConvexMeshTest.dir\build.make CMakeFiles/CCDConvexMeshTest.dir/Stress_Tests/CCDConvexMeshTest.cpp.obj
+.PHONY : Stress_Tests/CCDConvexMeshTest.cpp.obj
+
+Stress_Tests/CCDConvexMeshTest.i: Stress_Tests/CCDConvexMeshTest.cpp.i
+.PHONY : Stress_Tests/CCDConvexMeshTest.i
+
+# target to preprocess a source file
+Stress_Tests/CCDConvexMeshTest.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CCDConvexMeshTest.dir\build.make CMakeFiles/CCDConvexMeshTest.dir/Stress_Tests/CCDConvexMeshTest.cpp.i
+.PHONY : Stress_Tests/CCDConvexMeshTest.cpp.i
+
+Stress_Tests/CCDConvexMeshTest.s: Stress_Tests/CCDConvexMeshTest.cpp.s
+.PHONY : Stress_Tests/CCDConvexMeshTest.s
+
+# target to generate assembly for a file
+Stress_Tests/CCDConvexMeshTest.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CCDConvexMeshTest.dir\build.make CMakeFiles/CCDConvexMeshTest.dir/Stress_Tests/CCDConvexMeshTest.cpp.s
+.PHONY : Stress_Tests/CCDConvexMeshTest.cpp.s
 
 Stress_Tests/ChaosDensityTest.obj: Stress_Tests/ChaosDensityTest.cpp.obj
 .PHONY : Stress_Tests/ChaosDensityTest.obj
@@ -554,6 +604,30 @@ Stress_Tests/DeterminismTest.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\DeterminismTest.dir\build.make CMakeFiles/DeterminismTest.dir/Stress_Tests/DeterminismTest.cpp.s
 .PHONY : Stress_Tests/DeterminismTest.cpp.s
 
+Stress_Tests/MultibodyCrashTest.obj: Stress_Tests/MultibodyCrashTest.cpp.obj
+.PHONY : Stress_Tests/MultibodyCrashTest.obj
+
+# target to build an object file
+Stress_Tests/MultibodyCrashTest.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\MultibodyCrashTest.dir\build.make CMakeFiles/MultibodyCrashTest.dir/Stress_Tests/MultibodyCrashTest.cpp.obj
+.PHONY : Stress_Tests/MultibodyCrashTest.cpp.obj
+
+Stress_Tests/MultibodyCrashTest.i: Stress_Tests/MultibodyCrashTest.cpp.i
+.PHONY : Stress_Tests/MultibodyCrashTest.i
+
+# target to preprocess a source file
+Stress_Tests/MultibodyCrashTest.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\MultibodyCrashTest.dir\build.make CMakeFiles/MultibodyCrashTest.dir/Stress_Tests/MultibodyCrashTest.cpp.i
+.PHONY : Stress_Tests/MultibodyCrashTest.cpp.i
+
+Stress_Tests/MultibodyCrashTest.s: Stress_Tests/MultibodyCrashTest.cpp.s
+.PHONY : Stress_Tests/MultibodyCrashTest.s
+
+# target to generate assembly for a file
+Stress_Tests/MultibodyCrashTest.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\MultibodyCrashTest.dir\build.make CMakeFiles/MultibodyCrashTest.dir/Stress_Tests/MultibodyCrashTest.cpp.s
+.PHONY : Stress_Tests/MultibodyCrashTest.cpp.s
+
 Stress_Tests/TunnelingTest.obj: Stress_Tests/TunnelingTest.cpp.obj
 .PHONY : Stress_Tests/TunnelingTest.obj
 
@@ -578,437 +652,437 @@ Stress_Tests/TunnelingTest.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\TunnelingTest.dir\build.make CMakeFiles/TunnelingTest.dir/Stress_Tests/TunnelingTest.cpp.s
 .PHONY : Stress_Tests/TunnelingTest.cpp.s
 
-test_alignment.obj: test_alignment.cpp.obj
-.PHONY : test_alignment.obj
+Tests/test_alignment.obj: Tests/test_alignment.cpp.obj
+.PHONY : Tests/test_alignment.obj
 
 # target to build an object file
-test_alignment.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/test_alignment.cpp.obj
-.PHONY : test_alignment.cpp.obj
+Tests/test_alignment.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/Tests/test_alignment.cpp.obj
+.PHONY : Tests/test_alignment.cpp.obj
 
-test_alignment.i: test_alignment.cpp.i
-.PHONY : test_alignment.i
+Tests/test_alignment.i: Tests/test_alignment.cpp.i
+.PHONY : Tests/test_alignment.i
 
 # target to preprocess a source file
-test_alignment.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/test_alignment.cpp.i
-.PHONY : test_alignment.cpp.i
+Tests/test_alignment.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/Tests/test_alignment.cpp.i
+.PHONY : Tests/test_alignment.cpp.i
 
-test_alignment.s: test_alignment.cpp.s
-.PHONY : test_alignment.s
+Tests/test_alignment.s: Tests/test_alignment.cpp.s
+.PHONY : Tests/test_alignment.s
 
 # target to generate assembly for a file
-test_alignment.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/test_alignment.cpp.s
-.PHONY : test_alignment.cpp.s
+Tests/test_alignment.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_alignment.dir\build.make CMakeFiles/test_alignment.dir/Tests/test_alignment.cpp.s
+.PHONY : Tests/test_alignment.cpp.s
 
-test_ccd.obj: test_ccd.cpp.obj
-.PHONY : test_ccd.obj
+Tests/test_ccd.obj: Tests/test_ccd.cpp.obj
+.PHONY : Tests/test_ccd.obj
 
 # target to build an object file
-test_ccd.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/test_ccd.cpp.obj
-.PHONY : test_ccd.cpp.obj
+Tests/test_ccd.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj
+.PHONY : Tests/test_ccd.cpp.obj
 
-test_ccd.i: test_ccd.cpp.i
-.PHONY : test_ccd.i
+Tests/test_ccd.i: Tests/test_ccd.cpp.i
+.PHONY : Tests/test_ccd.i
 
 # target to preprocess a source file
-test_ccd.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/test_ccd.cpp.i
-.PHONY : test_ccd.cpp.i
+Tests/test_ccd.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.i
+.PHONY : Tests/test_ccd.cpp.i
 
-test_ccd.s: test_ccd.cpp.s
-.PHONY : test_ccd.s
+Tests/test_ccd.s: Tests/test_ccd.cpp.s
+.PHONY : Tests/test_ccd.s
 
 # target to generate assembly for a file
-test_ccd.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/test_ccd.cpp.s
-.PHONY : test_ccd.cpp.s
+Tests/test_ccd.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ccd.dir\build.make CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.s
+.PHONY : Tests/test_ccd.cpp.s
 
-test_character.obj: test_character.cpp.obj
-.PHONY : test_character.obj
+Tests/test_character.obj: Tests/test_character.cpp.obj
+.PHONY : Tests/test_character.obj
 
 # target to build an object file
-test_character.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/test_character.cpp.obj
-.PHONY : test_character.cpp.obj
+Tests/test_character.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/Tests/test_character.cpp.obj
+.PHONY : Tests/test_character.cpp.obj
 
-test_character.i: test_character.cpp.i
-.PHONY : test_character.i
+Tests/test_character.i: Tests/test_character.cpp.i
+.PHONY : Tests/test_character.i
 
 # target to preprocess a source file
-test_character.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/test_character.cpp.i
-.PHONY : test_character.cpp.i
+Tests/test_character.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/Tests/test_character.cpp.i
+.PHONY : Tests/test_character.cpp.i
 
-test_character.s: test_character.cpp.s
-.PHONY : test_character.s
+Tests/test_character.s: Tests/test_character.cpp.s
+.PHONY : Tests/test_character.s
 
 # target to generate assembly for a file
-test_character.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/test_character.cpp.s
-.PHONY : test_character.cpp.s
+Tests/test_character.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_character.dir\build.make CMakeFiles/test_character.dir/Tests/test_character.cpp.s
+.PHONY : Tests/test_character.cpp.s
 
-test_collision.obj: test_collision.cpp.obj
-.PHONY : test_collision.obj
+Tests/test_collision.obj: Tests/test_collision.cpp.obj
+.PHONY : Tests/test_collision.obj
 
 # target to build an object file
-test_collision.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/test_collision.cpp.obj
-.PHONY : test_collision.cpp.obj
+Tests/test_collision.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj
+.PHONY : Tests/test_collision.cpp.obj
 
-test_collision.i: test_collision.cpp.i
-.PHONY : test_collision.i
+Tests/test_collision.i: Tests/test_collision.cpp.i
+.PHONY : Tests/test_collision.i
 
 # target to preprocess a source file
-test_collision.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/test_collision.cpp.i
-.PHONY : test_collision.cpp.i
+Tests/test_collision.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/Tests/test_collision.cpp.i
+.PHONY : Tests/test_collision.cpp.i
 
-test_collision.s: test_collision.cpp.s
-.PHONY : test_collision.s
+Tests/test_collision.s: Tests/test_collision.cpp.s
+.PHONY : Tests/test_collision.s
 
 # target to generate assembly for a file
-test_collision.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/test_collision.cpp.s
-.PHONY : test_collision.cpp.s
+Tests/test_collision.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_collision.dir\build.make CMakeFiles/test_collision.dir/Tests/test_collision.cpp.s
+.PHONY : Tests/test_collision.cpp.s
 
-test_contactreduction.obj: test_contactreduction.cpp.obj
-.PHONY : test_contactreduction.obj
+Tests/test_contactreduction.obj: Tests/test_contactreduction.cpp.obj
+.PHONY : Tests/test_contactreduction.obj
 
 # target to build an object file
-test_contactreduction.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/test_contactreduction.cpp.obj
-.PHONY : test_contactreduction.cpp.obj
+Tests/test_contactreduction.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/Tests/test_contactreduction.cpp.obj
+.PHONY : Tests/test_contactreduction.cpp.obj
 
-test_contactreduction.i: test_contactreduction.cpp.i
-.PHONY : test_contactreduction.i
+Tests/test_contactreduction.i: Tests/test_contactreduction.cpp.i
+.PHONY : Tests/test_contactreduction.i
 
 # target to preprocess a source file
-test_contactreduction.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/test_contactreduction.cpp.i
-.PHONY : test_contactreduction.cpp.i
+Tests/test_contactreduction.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/Tests/test_contactreduction.cpp.i
+.PHONY : Tests/test_contactreduction.cpp.i
 
-test_contactreduction.s: test_contactreduction.cpp.s
-.PHONY : test_contactreduction.s
+Tests/test_contactreduction.s: Tests/test_contactreduction.cpp.s
+.PHONY : Tests/test_contactreduction.s
 
 # target to generate assembly for a file
-test_contactreduction.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/test_contactreduction.cpp.s
-.PHONY : test_contactreduction.cpp.s
+Tests/test_contactreduction.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_contactreduction.dir\build.make CMakeFiles/test_contactreduction.dir/Tests/test_contactreduction.cpp.s
+.PHONY : Tests/test_contactreduction.cpp.s
 
-test_convexmesh.obj: test_convexmesh.cpp.obj
-.PHONY : test_convexmesh.obj
+Tests/test_convexmesh.obj: Tests/test_convexmesh.cpp.obj
+.PHONY : Tests/test_convexmesh.obj
 
 # target to build an object file
-test_convexmesh.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/test_convexmesh.cpp.obj
-.PHONY : test_convexmesh.cpp.obj
+Tests/test_convexmesh.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/Tests/test_convexmesh.cpp.obj
+.PHONY : Tests/test_convexmesh.cpp.obj
 
-test_convexmesh.i: test_convexmesh.cpp.i
-.PHONY : test_convexmesh.i
+Tests/test_convexmesh.i: Tests/test_convexmesh.cpp.i
+.PHONY : Tests/test_convexmesh.i
 
 # target to preprocess a source file
-test_convexmesh.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/test_convexmesh.cpp.i
-.PHONY : test_convexmesh.cpp.i
+Tests/test_convexmesh.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/Tests/test_convexmesh.cpp.i
+.PHONY : Tests/test_convexmesh.cpp.i
 
-test_convexmesh.s: test_convexmesh.cpp.s
-.PHONY : test_convexmesh.s
+Tests/test_convexmesh.s: Tests/test_convexmesh.cpp.s
+.PHONY : Tests/test_convexmesh.s
 
 # target to generate assembly for a file
-test_convexmesh.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/test_convexmesh.cpp.s
-.PHONY : test_convexmesh.cpp.s
+Tests/test_convexmesh.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_convexmesh.dir\build.make CMakeFiles/test_convexmesh.dir/Tests/test_convexmesh.cpp.s
+.PHONY : Tests/test_convexmesh.cpp.s
 
-test_dbvt.obj: test_dbvt.cpp.obj
-.PHONY : test_dbvt.obj
+Tests/test_dbvt.obj: Tests/test_dbvt.cpp.obj
+.PHONY : Tests/test_dbvt.obj
 
 # target to build an object file
-test_dbvt.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj
-.PHONY : test_dbvt.cpp.obj
+Tests/test_dbvt.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj
+.PHONY : Tests/test_dbvt.cpp.obj
 
-test_dbvt.i: test_dbvt.cpp.i
-.PHONY : test_dbvt.i
+Tests/test_dbvt.i: Tests/test_dbvt.cpp.i
+.PHONY : Tests/test_dbvt.i
 
 # target to preprocess a source file
-test_dbvt.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/test_dbvt.cpp.i
-.PHONY : test_dbvt.cpp.i
+Tests/test_dbvt.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.i
+.PHONY : Tests/test_dbvt.cpp.i
 
-test_dbvt.s: test_dbvt.cpp.s
-.PHONY : test_dbvt.s
+Tests/test_dbvt.s: Tests/test_dbvt.cpp.s
+.PHONY : Tests/test_dbvt.s
 
 # target to generate assembly for a file
-test_dbvt.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/test_dbvt.cpp.s
-.PHONY : test_dbvt.cpp.s
+Tests/test_dbvt.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_dbvt.dir\build.make CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.s
+.PHONY : Tests/test_dbvt.cpp.s
 
-test_final.obj: test_final.cpp.obj
-.PHONY : test_final.obj
+Tests/test_final.obj: Tests/test_final.cpp.obj
+.PHONY : Tests/test_final.obj
 
 # target to build an object file
-test_final.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/test_final.cpp.obj
-.PHONY : test_final.cpp.obj
+Tests/test_final.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/Tests/test_final.cpp.obj
+.PHONY : Tests/test_final.cpp.obj
 
-test_final.i: test_final.cpp.i
-.PHONY : test_final.i
+Tests/test_final.i: Tests/test_final.cpp.i
+.PHONY : Tests/test_final.i
 
 # target to preprocess a source file
-test_final.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/test_final.cpp.i
-.PHONY : test_final.cpp.i
+Tests/test_final.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/Tests/test_final.cpp.i
+.PHONY : Tests/test_final.cpp.i
 
-test_final.s: test_final.cpp.s
-.PHONY : test_final.s
+Tests/test_final.s: Tests/test_final.cpp.s
+.PHONY : Tests/test_final.s
 
 # target to generate assembly for a file
-test_final.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/test_final.cpp.s
-.PHONY : test_final.cpp.s
+Tests/test_final.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_final.dir\build.make CMakeFiles/test_final.dir/Tests/test_final.cpp.s
+.PHONY : Tests/test_final.cpp.s
 
-test_fracture.obj: test_fracture.cpp.obj
-.PHONY : test_fracture.obj
+Tests/test_fracture.obj: Tests/test_fracture.cpp.obj
+.PHONY : Tests/test_fracture.obj
 
 # target to build an object file
-test_fracture.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/test_fracture.cpp.obj
-.PHONY : test_fracture.cpp.obj
+Tests/test_fracture.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.obj
+.PHONY : Tests/test_fracture.cpp.obj
 
-test_fracture.i: test_fracture.cpp.i
-.PHONY : test_fracture.i
+Tests/test_fracture.i: Tests/test_fracture.cpp.i
+.PHONY : Tests/test_fracture.i
 
 # target to preprocess a source file
-test_fracture.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/test_fracture.cpp.i
-.PHONY : test_fracture.cpp.i
+Tests/test_fracture.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.i
+.PHONY : Tests/test_fracture.cpp.i
 
-test_fracture.s: test_fracture.cpp.s
-.PHONY : test_fracture.s
+Tests/test_fracture.s: Tests/test_fracture.cpp.s
+.PHONY : Tests/test_fracture.s
 
 # target to generate assembly for a file
-test_fracture.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/test_fracture.cpp.s
-.PHONY : test_fracture.cpp.s
+Tests/test_fracture.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_fracture.dir\build.make CMakeFiles/test_fracture.dir/Tests/test_fracture.cpp.s
+.PHONY : Tests/test_fracture.cpp.s
 
-test_joints.obj: test_joints.cpp.obj
-.PHONY : test_joints.obj
+Tests/test_joints.obj: Tests/test_joints.cpp.obj
+.PHONY : Tests/test_joints.obj
 
 # target to build an object file
-test_joints.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/test_joints.cpp.obj
-.PHONY : test_joints.cpp.obj
+Tests/test_joints.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/Tests/test_joints.cpp.obj
+.PHONY : Tests/test_joints.cpp.obj
 
-test_joints.i: test_joints.cpp.i
-.PHONY : test_joints.i
+Tests/test_joints.i: Tests/test_joints.cpp.i
+.PHONY : Tests/test_joints.i
 
 # target to preprocess a source file
-test_joints.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/test_joints.cpp.i
-.PHONY : test_joints.cpp.i
+Tests/test_joints.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/Tests/test_joints.cpp.i
+.PHONY : Tests/test_joints.cpp.i
 
-test_joints.s: test_joints.cpp.s
-.PHONY : test_joints.s
+Tests/test_joints.s: Tests/test_joints.cpp.s
+.PHONY : Tests/test_joints.s
 
 # target to generate assembly for a file
-test_joints.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/test_joints.cpp.s
-.PHONY : test_joints.cpp.s
+Tests/test_joints.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_joints.dir\build.make CMakeFiles/test_joints.dir/Tests/test_joints.cpp.s
+.PHONY : Tests/test_joints.cpp.s
 
-test_new_features.obj: test_new_features.cpp.obj
-.PHONY : test_new_features.obj
+Tests/test_new_features.obj: Tests/test_new_features.cpp.obj
+.PHONY : Tests/test_new_features.obj
 
 # target to build an object file
-test_new_features.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/test_new_features.cpp.obj
-.PHONY : test_new_features.cpp.obj
+Tests/test_new_features.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.obj
+.PHONY : Tests/test_new_features.cpp.obj
 
-test_new_features.i: test_new_features.cpp.i
-.PHONY : test_new_features.i
+Tests/test_new_features.i: Tests/test_new_features.cpp.i
+.PHONY : Tests/test_new_features.i
 
 # target to preprocess a source file
-test_new_features.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/test_new_features.cpp.i
-.PHONY : test_new_features.cpp.i
+Tests/test_new_features.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.i
+.PHONY : Tests/test_new_features.cpp.i
 
-test_new_features.s: test_new_features.cpp.s
-.PHONY : test_new_features.s
+Tests/test_new_features.s: Tests/test_new_features.cpp.s
+.PHONY : Tests/test_new_features.s
 
 # target to generate assembly for a file
-test_new_features.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/test_new_features.cpp.s
-.PHONY : test_new_features.cpp.s
+Tests/test_new_features.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_new_features.dir\build.make CMakeFiles/test_new_features.dir/Tests/test_new_features.cpp.s
+.PHONY : Tests/test_new_features.cpp.s
 
-test_parallel.obj: test_parallel.cpp.obj
-.PHONY : test_parallel.obj
+Tests/test_parallel.obj: Tests/test_parallel.cpp.obj
+.PHONY : Tests/test_parallel.obj
 
 # target to build an object file
-test_parallel.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/test_parallel.cpp.obj
-.PHONY : test_parallel.cpp.obj
+Tests/test_parallel.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj
+.PHONY : Tests/test_parallel.cpp.obj
 
-test_parallel.i: test_parallel.cpp.i
-.PHONY : test_parallel.i
+Tests/test_parallel.i: Tests/test_parallel.cpp.i
+.PHONY : Tests/test_parallel.i
 
 # target to preprocess a source file
-test_parallel.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/test_parallel.cpp.i
-.PHONY : test_parallel.cpp.i
+Tests/test_parallel.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.i
+.PHONY : Tests/test_parallel.cpp.i
 
-test_parallel.s: test_parallel.cpp.s
-.PHONY : test_parallel.s
+Tests/test_parallel.s: Tests/test_parallel.cpp.s
+.PHONY : Tests/test_parallel.s
 
 # target to generate assembly for a file
-test_parallel.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/test_parallel.cpp.s
-.PHONY : test_parallel.cpp.s
+Tests/test_parallel.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_parallel.dir\build.make CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.s
+.PHONY : Tests/test_parallel.cpp.s
 
-test_ragdoll.obj: test_ragdoll.cpp.obj
-.PHONY : test_ragdoll.obj
+Tests/test_ragdoll.obj: Tests/test_ragdoll.cpp.obj
+.PHONY : Tests/test_ragdoll.obj
 
 # target to build an object file
-test_ragdoll.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/test_ragdoll.cpp.obj
-.PHONY : test_ragdoll.cpp.obj
+Tests/test_ragdoll.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/Tests/test_ragdoll.cpp.obj
+.PHONY : Tests/test_ragdoll.cpp.obj
 
-test_ragdoll.i: test_ragdoll.cpp.i
-.PHONY : test_ragdoll.i
+Tests/test_ragdoll.i: Tests/test_ragdoll.cpp.i
+.PHONY : Tests/test_ragdoll.i
 
 # target to preprocess a source file
-test_ragdoll.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/test_ragdoll.cpp.i
-.PHONY : test_ragdoll.cpp.i
+Tests/test_ragdoll.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/Tests/test_ragdoll.cpp.i
+.PHONY : Tests/test_ragdoll.cpp.i
 
-test_ragdoll.s: test_ragdoll.cpp.s
-.PHONY : test_ragdoll.s
+Tests/test_ragdoll.s: Tests/test_ragdoll.cpp.s
+.PHONY : Tests/test_ragdoll.s
 
 # target to generate assembly for a file
-test_ragdoll.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/test_ragdoll.cpp.s
-.PHONY : test_ragdoll.cpp.s
+Tests/test_ragdoll.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_ragdoll.dir\build.make CMakeFiles/test_ragdoll.dir/Tests/test_ragdoll.cpp.s
+.PHONY : Tests/test_ragdoll.cpp.s
 
-test_sap.obj: test_sap.cpp.obj
-.PHONY : test_sap.obj
+Tests/test_sap.obj: Tests/test_sap.cpp.obj
+.PHONY : Tests/test_sap.obj
 
 # target to build an object file
-test_sap.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/test_sap.cpp.obj
-.PHONY : test_sap.cpp.obj
+Tests/test_sap.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj
+.PHONY : Tests/test_sap.cpp.obj
 
-test_sap.i: test_sap.cpp.i
-.PHONY : test_sap.i
+Tests/test_sap.i: Tests/test_sap.cpp.i
+.PHONY : Tests/test_sap.i
 
 # target to preprocess a source file
-test_sap.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/test_sap.cpp.i
-.PHONY : test_sap.cpp.i
+Tests/test_sap.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/Tests/test_sap.cpp.i
+.PHONY : Tests/test_sap.cpp.i
 
-test_sap.s: test_sap.cpp.s
-.PHONY : test_sap.s
+Tests/test_sap.s: Tests/test_sap.cpp.s
+.PHONY : Tests/test_sap.s
 
 # target to generate assembly for a file
-test_sap.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/test_sap.cpp.s
-.PHONY : test_sap.cpp.s
+Tests/test_sap.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_sap.dir\build.make CMakeFiles/test_sap.dir/Tests/test_sap.cpp.s
+.PHONY : Tests/test_sap.cpp.s
 
-test_softbody.obj: test_softbody.cpp.obj
-.PHONY : test_softbody.obj
+Tests/test_softbody.obj: Tests/test_softbody.cpp.obj
+.PHONY : Tests/test_softbody.obj
 
 # target to build an object file
-test_softbody.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/test_softbody.cpp.obj
-.PHONY : test_softbody.cpp.obj
+Tests/test_softbody.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj
+.PHONY : Tests/test_softbody.cpp.obj
 
-test_softbody.i: test_softbody.cpp.i
-.PHONY : test_softbody.i
+Tests/test_softbody.i: Tests/test_softbody.cpp.i
+.PHONY : Tests/test_softbody.i
 
 # target to preprocess a source file
-test_softbody.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/test_softbody.cpp.i
-.PHONY : test_softbody.cpp.i
+Tests/test_softbody.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.i
+.PHONY : Tests/test_softbody.cpp.i
 
-test_softbody.s: test_softbody.cpp.s
-.PHONY : test_softbody.s
+Tests/test_softbody.s: Tests/test_softbody.cpp.s
+.PHONY : Tests/test_softbody.s
 
 # target to generate assembly for a file
-test_softbody.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/test_softbody.cpp.s
-.PHONY : test_softbody.cpp.s
+Tests/test_softbody.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_softbody.dir\build.make CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.s
+.PHONY : Tests/test_softbody.cpp.s
 
-test_taskgraph.obj: test_taskgraph.cpp.obj
-.PHONY : test_taskgraph.obj
+Tests/test_taskgraph.obj: Tests/test_taskgraph.cpp.obj
+.PHONY : Tests/test_taskgraph.obj
 
 # target to build an object file
-test_taskgraph.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj
-.PHONY : test_taskgraph.cpp.obj
+Tests/test_taskgraph.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj
+.PHONY : Tests/test_taskgraph.cpp.obj
 
-test_taskgraph.i: test_taskgraph.cpp.i
-.PHONY : test_taskgraph.i
+Tests/test_taskgraph.i: Tests/test_taskgraph.cpp.i
+.PHONY : Tests/test_taskgraph.i
 
 # target to preprocess a source file
-test_taskgraph.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.i
-.PHONY : test_taskgraph.cpp.i
+Tests/test_taskgraph.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.i
+.PHONY : Tests/test_taskgraph.cpp.i
 
-test_taskgraph.s: test_taskgraph.cpp.s
-.PHONY : test_taskgraph.s
+Tests/test_taskgraph.s: Tests/test_taskgraph.cpp.s
+.PHONY : Tests/test_taskgraph.s
 
 # target to generate assembly for a file
-test_taskgraph.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.s
-.PHONY : test_taskgraph.cpp.s
+Tests/test_taskgraph.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_taskgraph.dir\build.make CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.s
+.PHONY : Tests/test_taskgraph.cpp.s
 
-test_trimesh.obj: test_trimesh.cpp.obj
-.PHONY : test_trimesh.obj
+Tests/test_trimesh.obj: Tests/test_trimesh.cpp.obj
+.PHONY : Tests/test_trimesh.obj
 
 # target to build an object file
-test_trimesh.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj
-.PHONY : test_trimesh.cpp.obj
+Tests/test_trimesh.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj
+.PHONY : Tests/test_trimesh.cpp.obj
 
-test_trimesh.i: test_trimesh.cpp.i
-.PHONY : test_trimesh.i
+Tests/test_trimesh.i: Tests/test_trimesh.cpp.i
+.PHONY : Tests/test_trimesh.i
 
 # target to preprocess a source file
-test_trimesh.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/test_trimesh.cpp.i
-.PHONY : test_trimesh.cpp.i
+Tests/test_trimesh.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.i
+.PHONY : Tests/test_trimesh.cpp.i
 
-test_trimesh.s: test_trimesh.cpp.s
-.PHONY : test_trimesh.s
+Tests/test_trimesh.s: Tests/test_trimesh.cpp.s
+.PHONY : Tests/test_trimesh.s
 
 # target to generate assembly for a file
-test_trimesh.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/test_trimesh.cpp.s
-.PHONY : test_trimesh.cpp.s
+Tests/test_trimesh.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_trimesh.dir\build.make CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.s
+.PHONY : Tests/test_trimesh.cpp.s
 
-test_vehicle.obj: test_vehicle.cpp.obj
-.PHONY : test_vehicle.obj
+Tests/test_vehicle.obj: Tests/test_vehicle.cpp.obj
+.PHONY : Tests/test_vehicle.obj
 
 # target to build an object file
-test_vehicle.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/test_vehicle.cpp.obj
-.PHONY : test_vehicle.cpp.obj
+Tests/test_vehicle.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/Tests/test_vehicle.cpp.obj
+.PHONY : Tests/test_vehicle.cpp.obj
 
-test_vehicle.i: test_vehicle.cpp.i
-.PHONY : test_vehicle.i
+Tests/test_vehicle.i: Tests/test_vehicle.cpp.i
+.PHONY : Tests/test_vehicle.i
 
 # target to preprocess a source file
-test_vehicle.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/test_vehicle.cpp.i
-.PHONY : test_vehicle.cpp.i
+Tests/test_vehicle.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/Tests/test_vehicle.cpp.i
+.PHONY : Tests/test_vehicle.cpp.i
 
-test_vehicle.s: test_vehicle.cpp.s
-.PHONY : test_vehicle.s
+Tests/test_vehicle.s: Tests/test_vehicle.cpp.s
+.PHONY : Tests/test_vehicle.s
 
 # target to generate assembly for a file
-test_vehicle.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/test_vehicle.cpp.s
-.PHONY : test_vehicle.cpp.s
+Tests/test_vehicle.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\test_vehicle.dir\build.make CMakeFiles/test_vehicle.dir/Tests/test_vehicle.cpp.s
+.PHONY : Tests/test_vehicle.cpp.s
 
 # Help Target
 help:
@@ -1025,9 +1099,11 @@ help:
 	@echo ... test
 	@echo ... check
 	@echo ... stress_check
+	@echo ... CCDConvexMeshTest
 	@echo ... ChaosDensityTest
 	@echo ... DeepStackTest
 	@echo ... DeterminismTest
+	@echo ... MultibodyCrashTest
 	@echo ... TunnelingTest
 	@echo ... test_alignment
 	@echo ... test_ccd
@@ -1047,6 +1123,9 @@ help:
 	@echo ... test_taskgraph
 	@echo ... test_trimesh
 	@echo ... test_vehicle
+	@echo ... Stress_Tests/CCDConvexMeshTest.obj
+	@echo ... Stress_Tests/CCDConvexMeshTest.i
+	@echo ... Stress_Tests/CCDConvexMeshTest.s
 	@echo ... Stress_Tests/ChaosDensityTest.obj
 	@echo ... Stress_Tests/ChaosDensityTest.i
 	@echo ... Stress_Tests/ChaosDensityTest.s
@@ -1056,63 +1135,66 @@ help:
 	@echo ... Stress_Tests/DeterminismTest.obj
 	@echo ... Stress_Tests/DeterminismTest.i
 	@echo ... Stress_Tests/DeterminismTest.s
+	@echo ... Stress_Tests/MultibodyCrashTest.obj
+	@echo ... Stress_Tests/MultibodyCrashTest.i
+	@echo ... Stress_Tests/MultibodyCrashTest.s
 	@echo ... Stress_Tests/TunnelingTest.obj
 	@echo ... Stress_Tests/TunnelingTest.i
 	@echo ... Stress_Tests/TunnelingTest.s
-	@echo ... test_alignment.obj
-	@echo ... test_alignment.i
-	@echo ... test_alignment.s
-	@echo ... test_ccd.obj
-	@echo ... test_ccd.i
-	@echo ... test_ccd.s
-	@echo ... test_character.obj
-	@echo ... test_character.i
-	@echo ... test_character.s
-	@echo ... test_collision.obj
-	@echo ... test_collision.i
-	@echo ... test_collision.s
-	@echo ... test_contactreduction.obj
-	@echo ... test_contactreduction.i
-	@echo ... test_contactreduction.s
-	@echo ... test_convexmesh.obj
-	@echo ... test_convexmesh.i
-	@echo ... test_convexmesh.s
-	@echo ... test_dbvt.obj
-	@echo ... test_dbvt.i
-	@echo ... test_dbvt.s
-	@echo ... test_final.obj
-	@echo ... test_final.i
-	@echo ... test_final.s
-	@echo ... test_fracture.obj
-	@echo ... test_fracture.i
-	@echo ... test_fracture.s
-	@echo ... test_joints.obj
-	@echo ... test_joints.i
-	@echo ... test_joints.s
-	@echo ... test_new_features.obj
-	@echo ... test_new_features.i
-	@echo ... test_new_features.s
-	@echo ... test_parallel.obj
-	@echo ... test_parallel.i
-	@echo ... test_parallel.s
-	@echo ... test_ragdoll.obj
-	@echo ... test_ragdoll.i
-	@echo ... test_ragdoll.s
-	@echo ... test_sap.obj
-	@echo ... test_sap.i
-	@echo ... test_sap.s
-	@echo ... test_softbody.obj
-	@echo ... test_softbody.i
-	@echo ... test_softbody.s
-	@echo ... test_taskgraph.obj
-	@echo ... test_taskgraph.i
-	@echo ... test_taskgraph.s
-	@echo ... test_trimesh.obj
-	@echo ... test_trimesh.i
-	@echo ... test_trimesh.s
-	@echo ... test_vehicle.obj
-	@echo ... test_vehicle.i
-	@echo ... test_vehicle.s
+	@echo ... Tests/test_alignment.obj
+	@echo ... Tests/test_alignment.i
+	@echo ... Tests/test_alignment.s
+	@echo ... Tests/test_ccd.obj
+	@echo ... Tests/test_ccd.i
+	@echo ... Tests/test_ccd.s
+	@echo ... Tests/test_character.obj
+	@echo ... Tests/test_character.i
+	@echo ... Tests/test_character.s
+	@echo ... Tests/test_collision.obj
+	@echo ... Tests/test_collision.i
+	@echo ... Tests/test_collision.s
+	@echo ... Tests/test_contactreduction.obj
+	@echo ... Tests/test_contactreduction.i
+	@echo ... Tests/test_contactreduction.s
+	@echo ... Tests/test_convexmesh.obj
+	@echo ... Tests/test_convexmesh.i
+	@echo ... Tests/test_convexmesh.s
+	@echo ... Tests/test_dbvt.obj
+	@echo ... Tests/test_dbvt.i
+	@echo ... Tests/test_dbvt.s
+	@echo ... Tests/test_final.obj
+	@echo ... Tests/test_final.i
+	@echo ... Tests/test_final.s
+	@echo ... Tests/test_fracture.obj
+	@echo ... Tests/test_fracture.i
+	@echo ... Tests/test_fracture.s
+	@echo ... Tests/test_joints.obj
+	@echo ... Tests/test_joints.i
+	@echo ... Tests/test_joints.s
+	@echo ... Tests/test_new_features.obj
+	@echo ... Tests/test_new_features.i
+	@echo ... Tests/test_new_features.s
+	@echo ... Tests/test_parallel.obj
+	@echo ... Tests/test_parallel.i
+	@echo ... Tests/test_parallel.s
+	@echo ... Tests/test_ragdoll.obj
+	@echo ... Tests/test_ragdoll.i
+	@echo ... Tests/test_ragdoll.s
+	@echo ... Tests/test_sap.obj
+	@echo ... Tests/test_sap.i
+	@echo ... Tests/test_sap.s
+	@echo ... Tests/test_softbody.obj
+	@echo ... Tests/test_softbody.i
+	@echo ... Tests/test_softbody.s
+	@echo ... Tests/test_taskgraph.obj
+	@echo ... Tests/test_taskgraph.i
+	@echo ... Tests/test_taskgraph.s
+	@echo ... Tests/test_trimesh.obj
+	@echo ... Tests/test_trimesh.i
+	@echo ... Tests/test_trimesh.s
+	@echo ... Tests/test_vehicle.obj
+	@echo ... Tests/test_vehicle.i
+	@echo ... Tests/test_vehicle.s
 .PHONY : help
 
 

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_vehicle.dir/test_vehicle.cpp.obj"
-  "CMakeFiles/test_vehicle.dir/test_vehicle.cpp.obj.d"
+  "CMakeFiles/test_vehicle.dir/Tests/test_vehicle.cpp.obj"
+  "CMakeFiles/test_vehicle.dir/Tests/test_vehicle.cpp.obj.d"
   "libtest_vehicle.dll.a"
   "test_vehicle.exe"
   "test_vehicle.exe.manifest"

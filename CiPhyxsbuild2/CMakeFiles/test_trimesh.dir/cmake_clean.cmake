@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj"
-  "CMakeFiles/test_trimesh.dir/test_trimesh.cpp.obj.d"
+  "CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj"
+  "CMakeFiles/test_trimesh.dir/Tests/test_trimesh.cpp.obj.d"
   "libtest_trimesh.dll.a"
   "test_trimesh.exe"
   "test_trimesh.exe.manifest"

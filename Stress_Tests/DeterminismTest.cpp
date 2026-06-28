@@ -90,7 +90,7 @@ int main() {
             body.linearDamping   = 0.05f;
             body.angularDamping  = 0.05f;
             body.startActive     = true;
-            body.ccdEnabled      = (i % 5 == 0);  // every 5th body uses CCD
+            body.ccdMode         = (i % 5 == 0) ? CcdMode::Cast : CcdMode::None;
 
             w.createBody(body);
         }

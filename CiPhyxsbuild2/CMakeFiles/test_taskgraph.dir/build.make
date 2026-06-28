@@ -71,29 +71,29 @@ include CMakeFiles/test_taskgraph.dir/flags.make
 CMakeFiles/test_taskgraph.dir/codegen:
 .PHONY : CMakeFiles/test_taskgraph.dir/codegen
 
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/flags.make
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/includes_CXX.rsp
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj: E:/CiPhyxs/test_taskgraph.cpp
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj -MF CMakeFiles\test_taskgraph.dir\test_taskgraph.cpp.obj.d -o CMakeFiles\test_taskgraph.dir\test_taskgraph.cpp.obj -c E:\CiPhyxs\test_taskgraph.cpp
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/flags.make
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/includes_CXX.rsp
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj: E:/CiPhyxs/Tests/test_taskgraph.cpp
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj: CMakeFiles/test_taskgraph.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj -MF CMakeFiles\test_taskgraph.dir\Tests\test_taskgraph.cpp.obj.d -o CMakeFiles\test_taskgraph.dir\Tests\test_taskgraph.cpp.obj -c E:\CiPhyxs\Tests\test_taskgraph.cpp
 
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_taskgraph.cpp > CMakeFiles\test_taskgraph.dir\test_taskgraph.cpp.i
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_taskgraph.cpp > CMakeFiles\test_taskgraph.dir\Tests\test_taskgraph.cpp.i
 
-CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_taskgraph.cpp -o CMakeFiles\test_taskgraph.dir\test_taskgraph.cpp.s
+CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_taskgraph.cpp -o CMakeFiles\test_taskgraph.dir\Tests\test_taskgraph.cpp.s
 
 # Object files for target test_taskgraph
 test_taskgraph_OBJECTS = \
-"CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj"
+"CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj"
 
 # External object files for target test_taskgraph
 test_taskgraph_EXTERNAL_OBJECTS =
 
-test_taskgraph.exe: CMakeFiles/test_taskgraph.dir/test_taskgraph.cpp.obj
+test_taskgraph.exe: CMakeFiles/test_taskgraph.dir/Tests/test_taskgraph.cpp.obj
 test_taskgraph.exe: CMakeFiles/test_taskgraph.dir/build.make
 test_taskgraph.exe: CMakeFiles/test_taskgraph.dir/linkLibs.rsp
 test_taskgraph.exe: CMakeFiles/test_taskgraph.dir/objects1.rsp

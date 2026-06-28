@@ -71,29 +71,29 @@ include CMakeFiles/test_sap.dir/flags.make
 CMakeFiles/test_sap.dir/codegen:
 .PHONY : CMakeFiles/test_sap.dir/codegen
 
-CMakeFiles/test_sap.dir/test_sap.cpp.obj: CMakeFiles/test_sap.dir/flags.make
-CMakeFiles/test_sap.dir/test_sap.cpp.obj: CMakeFiles/test_sap.dir/includes_CXX.rsp
-CMakeFiles/test_sap.dir/test_sap.cpp.obj: E:/CiPhyxs/test_sap.cpp
-CMakeFiles/test_sap.dir/test_sap.cpp.obj: CMakeFiles/test_sap.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_sap.dir/test_sap.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_sap.dir/test_sap.cpp.obj -MF CMakeFiles\test_sap.dir\test_sap.cpp.obj.d -o CMakeFiles\test_sap.dir\test_sap.cpp.obj -c E:\CiPhyxs\test_sap.cpp
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj: CMakeFiles/test_sap.dir/flags.make
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj: CMakeFiles/test_sap.dir/includes_CXX.rsp
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj: E:/CiPhyxs/Tests/test_sap.cpp
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj: CMakeFiles/test_sap.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj -MF CMakeFiles\test_sap.dir\Tests\test_sap.cpp.obj.d -o CMakeFiles\test_sap.dir\Tests\test_sap.cpp.obj -c E:\CiPhyxs\Tests\test_sap.cpp
 
-CMakeFiles/test_sap.dir/test_sap.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_sap.dir/test_sap.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_sap.cpp > CMakeFiles\test_sap.dir\test_sap.cpp.i
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_sap.dir/Tests/test_sap.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_sap.cpp > CMakeFiles\test_sap.dir\Tests\test_sap.cpp.i
 
-CMakeFiles/test_sap.dir/test_sap.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_sap.dir/test_sap.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_sap.cpp -o CMakeFiles\test_sap.dir\test_sap.cpp.s
+CMakeFiles/test_sap.dir/Tests/test_sap.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_sap.dir/Tests/test_sap.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_sap.cpp -o CMakeFiles\test_sap.dir\Tests\test_sap.cpp.s
 
 # Object files for target test_sap
 test_sap_OBJECTS = \
-"CMakeFiles/test_sap.dir/test_sap.cpp.obj"
+"CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj"
 
 # External object files for target test_sap
 test_sap_EXTERNAL_OBJECTS =
 
-test_sap.exe: CMakeFiles/test_sap.dir/test_sap.cpp.obj
+test_sap.exe: CMakeFiles/test_sap.dir/Tests/test_sap.cpp.obj
 test_sap.exe: CMakeFiles/test_sap.dir/build.make
 test_sap.exe: CMakeFiles/test_sap.dir/linkLibs.rsp
 test_sap.exe: CMakeFiles/test_sap.dir/objects1.rsp

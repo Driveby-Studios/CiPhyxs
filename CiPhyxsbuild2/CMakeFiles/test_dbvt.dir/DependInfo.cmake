@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/CiPhyxs/test_dbvt.cpp" "CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj" "gcc" "CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj.d"
+  "E:/CiPhyxs/Tests/test_dbvt.cpp" "CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj" "gcc" "CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

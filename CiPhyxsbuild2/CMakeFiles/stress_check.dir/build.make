@@ -67,8 +67,10 @@ include CMakeFiles/stress_check.dir/progress.make
 
 CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/DeepStackTest.cpp
 CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/TunnelingTest.cpp
+CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/CCDConvexMeshTest.cpp
 CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/ChaosDensityTest.cpp
 CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/DeterminismTest.cpp
+CMakeFiles/stress_check: E:/CiPhyxs/Stress_Tests/MultibodyCrashTest.cpp
 	"C:\Program Files\CMake\bin\ctest.exe" --output-on-failure
 
 CMakeFiles/stress_check.dir/codegen:

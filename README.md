@@ -214,7 +214,7 @@ satisfied, enabling **pipeline parallelism**:
 
 ```
                ┌─────────────────────┐
-               │   Integrate Forces   │
+               │   Integrate Forces  │
                └──────────┬──────────┘
                           │
                ┌──────────▼──────────┐

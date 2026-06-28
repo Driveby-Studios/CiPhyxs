@@ -71,29 +71,29 @@ include CMakeFiles/test_collision.dir/flags.make
 CMakeFiles/test_collision.dir/codegen:
 .PHONY : CMakeFiles/test_collision.dir/codegen
 
-CMakeFiles/test_collision.dir/test_collision.cpp.obj: CMakeFiles/test_collision.dir/flags.make
-CMakeFiles/test_collision.dir/test_collision.cpp.obj: CMakeFiles/test_collision.dir/includes_CXX.rsp
-CMakeFiles/test_collision.dir/test_collision.cpp.obj: E:/CiPhyxs/test_collision.cpp
-CMakeFiles/test_collision.dir/test_collision.cpp.obj: CMakeFiles/test_collision.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_collision.dir/test_collision.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_collision.dir/test_collision.cpp.obj -MF CMakeFiles\test_collision.dir\test_collision.cpp.obj.d -o CMakeFiles\test_collision.dir\test_collision.cpp.obj -c E:\CiPhyxs\test_collision.cpp
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj: CMakeFiles/test_collision.dir/flags.make
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj: CMakeFiles/test_collision.dir/includes_CXX.rsp
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj: E:/CiPhyxs/Tests/test_collision.cpp
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj: CMakeFiles/test_collision.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj -MF CMakeFiles\test_collision.dir\Tests\test_collision.cpp.obj.d -o CMakeFiles\test_collision.dir\Tests\test_collision.cpp.obj -c E:\CiPhyxs\Tests\test_collision.cpp
 
-CMakeFiles/test_collision.dir/test_collision.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_collision.dir/test_collision.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_collision.cpp > CMakeFiles\test_collision.dir\test_collision.cpp.i
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_collision.dir/Tests/test_collision.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_collision.cpp > CMakeFiles\test_collision.dir\Tests\test_collision.cpp.i
 
-CMakeFiles/test_collision.dir/test_collision.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_collision.dir/test_collision.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_collision.cpp -o CMakeFiles\test_collision.dir\test_collision.cpp.s
+CMakeFiles/test_collision.dir/Tests/test_collision.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_collision.dir/Tests/test_collision.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_collision.cpp -o CMakeFiles\test_collision.dir\Tests\test_collision.cpp.s
 
 # Object files for target test_collision
 test_collision_OBJECTS = \
-"CMakeFiles/test_collision.dir/test_collision.cpp.obj"
+"CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj"
 
 # External object files for target test_collision
 test_collision_EXTERNAL_OBJECTS =
 
-test_collision.exe: CMakeFiles/test_collision.dir/test_collision.cpp.obj
+test_collision.exe: CMakeFiles/test_collision.dir/Tests/test_collision.cpp.obj
 test_collision.exe: CMakeFiles/test_collision.dir/build.make
 test_collision.exe: CMakeFiles/test_collision.dir/linkLibs.rsp
 test_collision.exe: CMakeFiles/test_collision.dir/objects1.rsp

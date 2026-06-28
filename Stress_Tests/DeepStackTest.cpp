@@ -20,15 +20,15 @@ int main() {
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
-    constexpr int    kNumBoxes      = 400;
-    constexpr int    kNumFrames     = 4000;
+    constexpr int    kNumBoxes      = 200;
+    constexpr int    kNumFrames     = 2000;
     constexpr float  kBoxHalf       = 0.35f;
     constexpr float  kStackSpacing  = 0.72f;
 
-    // Build a dense block: 10 wide x 5 deep x 8 high = 400 boxes
+    // Build a dense block: 10 wide x 5 deep x 4 high = 200 boxes
     constexpr int kWallW = 10;
     constexpr int kWallD = 5;
-    constexpr int kWallH = 8;
+    constexpr int kWallH = 4;
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Setup
@@ -43,8 +43,9 @@ int main() {
             cfg.angularDamping       = 0.1f;
             cfg.sleepEnergyThreshold = 0.005f;
             cfg.sleepTimeRequired    = 1.0f;
-            cfg.enableParallelSolver = false;
-            cfg.enableTaskGraphPipeline = false;
+            cfg.enableParallelSolver = true;
+            cfg.numThreads = 4;
+            cfg.enableTaskGraphPipeline = true;
             cfg.ccdSpeedThreshold    = 0.0f;
             cfg.ccdMaxSubSteps       = 0;
             world.setConfig(cfg);

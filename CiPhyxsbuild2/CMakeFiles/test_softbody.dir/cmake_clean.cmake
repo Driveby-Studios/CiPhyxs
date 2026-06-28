@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_softbody.dir/test_softbody.cpp.obj"
-  "CMakeFiles/test_softbody.dir/test_softbody.cpp.obj.d"
+  "CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj"
+  "CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj.d"
   "libtest_softbody.dll.a"
   "test_softbody.exe"
   "test_softbody.exe.manifest"

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_contactreduction.dir/test_contactreduction.cpp.obj"
-  "CMakeFiles/test_contactreduction.dir/test_contactreduction.cpp.obj.d"
+  "CMakeFiles/test_contactreduction.dir/Tests/test_contactreduction.cpp.obj"
+  "CMakeFiles/test_contactreduction.dir/Tests/test_contactreduction.cpp.obj.d"
   "libtest_contactreduction.dll.a"
   "test_contactreduction.exe"
   "test_contactreduction.exe.manifest"

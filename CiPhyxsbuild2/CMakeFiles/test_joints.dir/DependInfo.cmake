@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/CiPhyxs/test_joints.cpp" "CMakeFiles/test_joints.dir/test_joints.cpp.obj" "gcc" "CMakeFiles/test_joints.dir/test_joints.cpp.obj.d"
+  "E:/CiPhyxs/Tests/test_joints.cpp" "CMakeFiles/test_joints.dir/Tests/test_joints.cpp.obj" "gcc" "CMakeFiles/test_joints.dir/Tests/test_joints.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

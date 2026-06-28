@@ -80,6 +80,19 @@ struct DbvtConfig {
     /// A full rebuild produces an optimal tree and prunes all stale nodes.
     int rebuildThreshold = 64;
 
+    /// @brief  Number of new body insertions before a full rebuild is forced.
+    ///
+    /// When many bodies are added incrementally, the tree becomes pathologically
+    /// unbalanced because insertLeaf() attaches new leaves at the SAH-optimal
+    /// location but never restructures the tree globally.  A threshold of
+    /// ~10-20% of current body count prevents degenerate trees in scenes
+    /// with many spawns (fracture, debris, crowds).
+    ///
+    /// Set to 0 to disable insertion-triggered rebuild (default: 10% growth).
+    /// The value is interpreted as a fraction of current body count when < 1,
+    /// or as an absolute count when >= 1.
+    float insertionGrowthThreshold = 0.10f;
+
     /// @brief  Enable frame‑to‑frame pair caching.
     ///
     /// When enabled, overlapping pairs from the previous frame are reused (their AABBs
@@ -323,6 +336,14 @@ private:
     ///         When this reaches DbvtConfig::rebuildThreshold the tree is
     ///         rebuilt from scratch to restore near-optimal balance.
     int m_removalCount = 0;
+
+    /// @brief  Count of insertions since the last full rebuild.
+    ///         When this exceeds the growth threshold the tree is rebuilt.
+    int m_insertionCount = 0;
+
+    /// @brief  Body count at the time of the last full rebuild.
+    ///         Used to calculate the insertion growth trigger.
+    std::size_t m_bodyCountAtLastRebuild = 0;
 };
 
 //==================================================================================================
@@ -718,10 +739,64 @@ inline void Dbvt::sync(const RigidBodyStorage& bodies,
     m_enablePairCaching = config.enablePairCaching;
     std::size_t n       = bodies.size();
     std::size_t oldSize = m_bodyToNode.size();
-
     // Resize the body-to-node mapping for newly created bodies.
     if (n > oldSize) {
         m_bodyToNode.resize(n, -1);
+    }
+
+    // ── Phase 0: full rebuild on first sync ───────────────────────────────────────────────
+    //
+    //  When the tree is brand new (oldSize == 0) we skip incremental insertion entirely
+    //  and build a balanced tree directly.  Incremental insertion of hundreds
+    //  or thousands of bodies via SAH can produce a degenerate tree (depth O(n)), which
+    //  causes crashes in insertLeaf() at >= 1024 bodies.
+    //
+    //  After the first sync, incremental insertion/update is safe because the tree is
+    //  already balanced and the body count delta between frames is small.
+
+    if (oldSize == 0 && n > 0) {
+        // Collect all active bodies directly (don't check m_bodyToNode since it's all -1).
+        std::vector<RebuildLeaf> leaves;
+        leaves.reserve(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            if (!bodies.activeFlags[i]) continue;
+            if (bodies.shapeCount[i] == 0) continue;
+            RigidBodyHandle h = static_cast<RigidBodyHandle>(i);
+            AABB aabb = computeBodyAABB(h, bodies, shapes);
+            if (aabb.min.x > aabb.max.x) continue;
+            AABB fatBox = fattenAABB(aabb, config.fatAABBScale);
+            leaves.push_back({h, fatBox});
+        }
+
+        // Clear existing state and build balanced tree.
+        m_nodes.clear();
+        m_freeHead = -1;
+        m_bodyToNode.assign(n, -1);
+        m_root = -1;
+
+        if (!leaves.empty()) {
+            // Sort along longest axis for spatial coherence.
+            AABB totalBounds;
+            for (const auto& l : leaves) totalBounds = totalBounds.united(l.bounds);
+            Vec3f ext = totalBounds.extents();
+            int splitAxis = 0;
+            if (ext.y > ext.x) splitAxis = 1;
+            if (ext.z > ext.x && ext.z > ext.y) splitAxis = 2;
+            std::sort(leaves.begin(), leaves.end(),
+                [splitAxis](const RebuildLeaf& a, const RebuildLeaf& b) noexcept {
+                    float ca = a.bounds.min[splitAxis] + a.bounds.max[splitAxis];
+                    float cb = b.bounds.min[splitAxis] + b.bounds.max[splitAxis];
+                    return ca < cb;
+                });
+            m_root = buildLeafRange(leaves, 0, leaves.size(), splitAxis);
+        }
+
+        m_insertionCount = 0;
+        m_bodyCountAtLastRebuild = 0;
+        for (std::size_t j = 0; j < n; ++j) {
+            if (bodies.activeFlags[j] && bodies.shapeCount[j] > 0) ++m_bodyCountAtLastRebuild;
+        }
+        return;
     }
 
     // ── Phase 1: insert new bodies and update moved ones ──────────────────────────────────
@@ -741,6 +816,7 @@ inline void Dbvt::sync(const RigidBodyStorage& bodies,
         if (static_cast<std::size_t>(h) >= m_bodyToNode.size() ||
             m_bodyToNode[h] < 0) {
             insert(h, fatBox);
+            ++m_insertionCount;
         } else {
             update(h, fatBox);
         }
@@ -762,14 +838,45 @@ inline void Dbvt::sync(const RigidBodyStorage& bodies,
         m_bodyToNode.resize(n);
     }
 
-    // ── Phase 4: full rebuild if removal threshold exceeded ─────────────────────────────
+    // ── Phase 4: full rebuild if removal or insertion threshold exceeded ────────────────
     //
     //  A full rebuild produces a perfectly balanced tree and eliminates all
     //  stale internal nodes that accumulated during incremental updates.
+    //  We check both removal count AND insertion growth to prevent degenerate
+    //  trees in spawn-heavy scenes (fracture, crowds, debris).
 
-    if (m_removalCount >= config.rebuildThreshold) {
-        rebuild(bodies, shapes, config);
+    bool removalTrigger = (m_removalCount >= config.rebuildThreshold);
+
+    bool insertionTrigger = false;
+    if (config.insertionGrowthThreshold > 0.0f) {
+        std::size_t currentActive = 0;
+        for (std::size_t j = 0; j < n; ++j) {
+            if (bodies.activeFlags[j] && bodies.shapeCount[j] > 0) ++currentActive;
+        }
+        std::size_t delta = (currentActive > m_bodyCountAtLastRebuild)
+                            ? (currentActive - m_bodyCountAtLastRebuild)
+                            : 0;
+        if (config.insertionGrowthThreshold >= 1.0f) {
+            // Absolute threshold.
+            insertionTrigger = (delta >= static_cast<std::size_t>(config.insertionGrowthThreshold));
+        } else {
+                // Fractional threshold of the body count at last rebuild.
+                std::size_t threshold = static_cast<std::size_t>(
+                    static_cast<float>(m_bodyCountAtLastRebuild) * config.insertionGrowthThreshold);
+                if (threshold < 1) threshold = 1;
+                insertionTrigger = (delta >= threshold);
+            }
+        }
+
+        if (removalTrigger || insertionTrigger) {
+            rebuild(bodies, shapes, config);
         m_removalCount = 0;
+        m_insertionCount = 0;
+        // Count active bodies for next growth trigger.
+        m_bodyCountAtLastRebuild = 0;
+        for (std::size_t j = 0; j < bodies.size(); ++j) {
+            if (bodies.activeFlags[j] && bodies.shapeCount[j] > 0) ++m_bodyCountAtLastRebuild;
+        }
     }
 }
 

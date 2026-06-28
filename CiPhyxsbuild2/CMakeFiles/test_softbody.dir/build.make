@@ -71,29 +71,29 @@ include CMakeFiles/test_softbody.dir/flags.make
 CMakeFiles/test_softbody.dir/codegen:
 .PHONY : CMakeFiles/test_softbody.dir/codegen
 
-CMakeFiles/test_softbody.dir/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/flags.make
-CMakeFiles/test_softbody.dir/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/includes_CXX.rsp
-CMakeFiles/test_softbody.dir/test_softbody.cpp.obj: E:/CiPhyxs/test_softbody.cpp
-CMakeFiles/test_softbody.dir/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_softbody.dir/test_softbody.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_softbody.dir/test_softbody.cpp.obj -MF CMakeFiles\test_softbody.dir\test_softbody.cpp.obj.d -o CMakeFiles\test_softbody.dir\test_softbody.cpp.obj -c E:\CiPhyxs\test_softbody.cpp
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/flags.make
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/includes_CXX.rsp
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj: E:/CiPhyxs/Tests/test_softbody.cpp
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj: CMakeFiles/test_softbody.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj -MF CMakeFiles\test_softbody.dir\Tests\test_softbody.cpp.obj.d -o CMakeFiles\test_softbody.dir\Tests\test_softbody.cpp.obj -c E:\CiPhyxs\Tests\test_softbody.cpp
 
-CMakeFiles/test_softbody.dir/test_softbody.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_softbody.dir/test_softbody.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_softbody.cpp > CMakeFiles\test_softbody.dir\test_softbody.cpp.i
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_softbody.cpp > CMakeFiles\test_softbody.dir\Tests\test_softbody.cpp.i
 
-CMakeFiles/test_softbody.dir/test_softbody.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_softbody.dir/test_softbody.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_softbody.cpp -o CMakeFiles\test_softbody.dir\test_softbody.cpp.s
+CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_softbody.cpp -o CMakeFiles\test_softbody.dir\Tests\test_softbody.cpp.s
 
 # Object files for target test_softbody
 test_softbody_OBJECTS = \
-"CMakeFiles/test_softbody.dir/test_softbody.cpp.obj"
+"CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj"
 
 # External object files for target test_softbody
 test_softbody_EXTERNAL_OBJECTS =
 
-test_softbody.exe: CMakeFiles/test_softbody.dir/test_softbody.cpp.obj
+test_softbody.exe: CMakeFiles/test_softbody.dir/Tests/test_softbody.cpp.obj
 test_softbody.exe: CMakeFiles/test_softbody.dir/build.make
 test_softbody.exe: CMakeFiles/test_softbody.dir/linkLibs.rsp
 test_softbody.exe: CMakeFiles/test_softbody.dir/objects1.rsp

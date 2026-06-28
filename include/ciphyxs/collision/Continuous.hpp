@@ -546,7 +546,7 @@ inline float sweepCapsuleConvexMesh(const Capsule& capsule,
 }
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
-//  CCD pipeline helper
+//  CCD pipeline helpers
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 
 /// @brief  CCD configuration.
@@ -560,42 +560,66 @@ struct CCDConfig {
     float speedThreshold = 10.0f;
 };
 
-/// @brief  Run CCD for a single body.  Corrects position and velocity if a hit is found.
+// ────────────────────────────────────────────────────────────────────────────────────────────
+//  Internal helpers
+// ────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Compute an approximate bounding radius for a body from its shapes.
+///         Used by ClampVelocity and SubStep CCD modes.
+inline float computeBodyBoundingRadius(RigidBodyHandle body,
+                                        const RigidBodyStorage& bodies,
+                                        const std::vector<Shape>& shapes) noexcept {
+    float r = 0.5f;
+    std::uint32_t start = bodies.shapeStart[body];
+    std::uint32_t count = bodies.shapeCount[body];
+    for (std::uint32_t s = 0; s < count; ++s) {
+        ShapeHandle sh = bodies.flatShapeHandles[start + s];
+        if (sh >= shapes.size()) continue;
+        const Shape& shape = shapes[sh];
+        switch (shape.type) {
+            case ShapeType::Sphere:
+                r = std::max(r, shape.sphere.radius);
+                break;
+            case ShapeType::Box:
+                r = std::max(r, shape.box.halfExtents.length());
+                break;
+            case ShapeType::Capsule:
+                r = std::max(r, shape.capsule.radius + shape.capsule.halfHeight);
+                break;
+            case ShapeType::ConvexMesh:
+                r = std::max(r, shape.convexMesh.halfExtents.length());
+                break;
+            default:
+                break;
+        }
+    }
+    return r;
+}
+
+/// @brief  Result of a single CCD sweep against all static/kinematic bodies.
+struct CcdSweepResult {
+    float  toi       = 1.0f;
+    Vec3f  normal    = Vec3f{0.0f, 1.0f, 0.0f};
+    Vec3f  hitPoint  = Vec3f{0.0f, 0.0f, 0.0f};
+    bool   hit       = false;
+};
+
+/// @brief  Sweep `body` from `pos` with `vel` over `dt` against all static/kinematic
+///         obstacles, returning the earliest TOI, normal, and contact point.
 ///
-/// Tests the body's swept path (pos → pos + vel * dt) against all other active bodies.
-/// If a TOI < 1 is found, the body is advanced to the TOI position and its velocity is
-/// reflected along the collision normal with restitution.
-///
-/// @param body          Handle of the CCD body.
-/// @param dt            Fixed timestep.
-/// @param bodies        SoA rigid-body storage (modified in-place).
-/// @param shapes        Shape registry.
-/// @param restitution   Coefficient of restitution for the CCD body.
-/// @param friction      Friction coefficient for the CCD body (currently unused).
-/// @return  True if a CCD collision was resolved.
-///
-/// @note  This function only modifies `body`.  Other bodies are treated as static
-///        obstacles during the sweep (their velocities are ignored).  This is the
-///        standard "CCD against world" approximation used by most engines — it
-///        prevents the most common tunnelling cases (fast object → static wall).
-inline bool ccdResolveBody(RigidBodyHandle body, float dt,
-                           RigidBodyStorage& bodies,
-                           const std::vector<Shape>& shapes,
-                           float restitution, float /*friction*/) noexcept {
+/// This is the inner sweep loop extracted from `ccdResolveBody` so that it can be
+/// called multiple times for sub-stepping without duplicating the dispatch logic.
+inline CcdSweepResult ccdSweepBody(RigidBodyHandle body,
+                                    const Vec3f& pos,
+                                    const Vec3f& vel,
+                                    float dt,
+                                    const RigidBodyStorage& bodies,
+                                    const std::vector<Shape>& shapes) noexcept {
 
-    if (bodies.shapeCount[body] == 0) return false;
+    CcdSweepResult result;
 
-    Vec3f vel = bodies.linearVelocities[body];
-    float speed = vel.length();
-    if (speed < 1e-8f) return false;
-
-    Vec3f pos = bodies.positions[body];
-    Vec3f disp = vel * dt;
-
-    float bestTOI = 1.0f;
-    Vec3f bestNormal(0.0f, 1.0f, 0.0f);
-    Vec3f bestPosition(0.0f, 0.0f, 0.0f);
-    bool hit = false;
+    std::uint32_t startA = bodies.shapeStart[body];
+    std::uint32_t countA = bodies.shapeCount[body];
 
     // Iterate over all other active bodies.
     for (std::size_t j = 0; j < bodies.size(); ++j) {
@@ -604,12 +628,8 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
         if (bodies.shapeCount[j] == 0) continue;
 
         // Only test against static and kinematic bodies (obstacles).
-        // Dynamic-dynamic CCD is more complex and less critical for tunnelling.
         if (bodies.motionTypes[j] == MotionType::Dynamic) continue;
 
-        // Iterate over sub-shapes of both bodies.
-        std::uint32_t startA = bodies.shapeStart[body];
-        std::uint32_t countA = bodies.shapeCount[body];
         std::uint32_t startB = bodies.shapeStart[j];
         std::uint32_t countB = bodies.shapeCount[j];
 
@@ -618,12 +638,8 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
             if (shA >= shapes.size()) continue;
 
             const Shape& shapeA = shapes[shA];
-
-            // Sub-shape world transform for the CCD body.
             Vec3f localPosA = bodies.flatShapeLocalPositions[startA + sa];
-            // localRotA is not needed for sphere CCD (sphere is rotationally invariant).
             Vec3f worldPosA = pos + bodies.rotations[body].rotate(localPosA);
-            // The sub-shape velocity is the body's linear velocity (rotation ignored for CCD).
 
             for (std::uint32_t sb = 0; sb < countB; ++sb) {
                 ShapeHandle shB = bodies.flatShapeHandles[startB + sb];
@@ -692,7 +708,6 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
                     const ConvexMesh& mA = shapeA.convexMesh;
                     float approxRadius = mA.halfExtents.length();
                     if (approxRadius < 1e-8f) {
-                        // Degenerate mesh — skip CCD.
                         continue;
                     }
                     Sphere approxSphere{approxRadius};
@@ -717,41 +732,111 @@ inline bool ccdResolveBody(RigidBodyHandle body, float dt,
                                                      nml, pt);
                     }
                 }
-                // For other shape types (non-sphere, non-capsule, non-ConvexMesh CCD bodies),
-                // fall back to no CCD (TOI stays 1).
 
-                if (toi < bestTOI) {
-                    bestTOI = toi;
-                    bestNormal = nml;
-                    bestPosition = pt;
-                    hit = true;
+                if (toi < result.toi) {
+                    result.toi = toi;
+                    result.normal = nml;
+                    result.hitPoint = pt;
+                    result.hit = true;
                 }
             }
         }
     }
 
-    if (!hit || bestTOI >= 1.0f) return false;
+    return result;
+}
 
-    // ─── Apply CCD correction ────────────────────────────────────────────────────────────────
-    //
-    // 1. Advance position to the TOI.
-    bodies.positions[body] = pos + disp * bestTOI;
+/// @brief  Run CCD for a single body with the specified CcdMode.
+///
+/// Tests the body's swept path against all static/kinematic obstacles.
+/// Supports four modes:
+///   - None:           skip entirely
+///   - Cast:           standard single sweep (current behavior)
+///   - ClampVelocity:  limit |v| so that |v|*dt < boundingRadius*0.5
+///   - SubStep:        divide frame into N sub-steps, each moving less than
+///                     boundingRadius*0.5, with sweep test per sub-step
+///
+/// @return  True if a CCD collision was resolved (position/velocity corrected).
+inline bool ccdResolveBody(RigidBodyHandle body, float dt,
+                           RigidBodyStorage& bodies,
+                           const std::vector<Shape>& shapes,
+                           float restitution, float /*friction*/,
+                           CcdMode mode = CcdMode::Cast) noexcept {
 
-    // 2. Reflect velocity along the contact normal (with restitution).
-    float vDotN = vel.dot(bestNormal);
-    if (vDotN < 0.0f) {
-        // Separate velocity into normal and tangential components.
-        Vec3f vNormal = bestNormal * vDotN;
-        Vec3f vTangent = vel - vNormal;
+    if (bodies.shapeCount[body] == 0) return false;
+    if (mode == CcdMode::None) return false;
 
-        // Apply restitution to the normal component (reflect).
-        bodies.linearVelocities[body] = vTangent - vNormal * restitution;
+    Vec3f vel = bodies.linearVelocities[body];
+    float speed = vel.length();
+    if (speed < 1e-8f) return false;
+
+    // ─── Compute bounding radius for velocity-management modes ───
+    float boundingRadius = -1.0f;
+    if (mode == CcdMode::ClampVelocity || mode == CcdMode::SubStep) {
+        boundingRadius = computeBodyBoundingRadius(body, bodies, shapes);
     }
 
-    // 3. Kill angular velocity for simplicity (the body has just hit something).
-    bodies.angularVelocities[body] *= 0.5f;
+    // ─── ClampVelocity: limit speed so |v|*dt < boundingRadius*0.5 ───
+    if (mode == CcdMode::ClampVelocity) {
+        float maxSpeed = boundingRadius * 0.5f / (dt + 1e-8f);
+        if (speed > maxSpeed) {
+            float scale = maxSpeed / speed;
+            vel *= scale;
+            bodies.linearVelocities[body] = vel;
+            speed = maxSpeed;
+        }
+    }
 
-    return true;
+    // ─── SubStep: determine number of sub-steps ───
+    int numSubSteps = 1;
+    if (mode == CcdMode::SubStep) {
+        float maxDisplacement = boundingRadius * 0.5f;
+        float totalDisplacement = speed * dt;
+        numSubSteps = static_cast<int>(
+            std::ceil(totalDisplacement / (maxDisplacement + 1e-8f)));
+        numSubSteps = std::max(1, std::min(numSubSteps, 16));
+    }
+
+    float subDt = dt / static_cast<float>(numSubSteps);
+    Vec3f basePos = bodies.positions[body];  // start-of-frame position
+    Vec3f currentVel = bodies.linearVelocities[body];
+
+    // ─── Main CCD loop (single pass for Cast/ClampVelocity, multi-pass for SubStep) ───
+    //
+    // For SubStep mode we use a VIRTUAL position for each sub-step's sweep test
+    // without writing to bodies.positions[body].  This avoids double-advancement
+    // when integratePositions runs later: it will apply vel * dt once.
+    // Only when a collision is found do we write the resolved position.
+    for (int step = 0; step < numSubSteps; ++step) {
+        // Virtual position at the start of this sub-step.
+        Vec3f pos = basePos + currentVel * subDt * static_cast<float>(step);
+
+        CcdSweepResult sweep = ccdSweepBody(body, pos, currentVel,
+                                             subDt, bodies, shapes);
+
+        if (sweep.hit && sweep.toi < 1.0f) {
+            // Advance position to the TOI within this sub-step.
+            // integratePositions will add reflected_vel * dt afterward.
+            bodies.positions[body] = pos + currentVel * subDt * sweep.toi;
+
+            // Reflect velocity along the contact normal (with restitution).
+            float vDotN = currentVel.dot(sweep.normal);
+            if (vDotN < 0.0f) {
+                Vec3f vNormal = sweep.normal * vDotN;
+                Vec3f vTangent = currentVel - vNormal;
+                bodies.linearVelocities[body] = vTangent - vNormal * restitution;
+            }
+
+            // Damp angular velocity (the body has just hit something).
+            bodies.angularVelocities[body] *= 0.5f;
+
+            return true;
+        }
+    }
+
+    // No collision in any sub-step — position unchanged.
+    // integratePositions will apply vel * dt as usual.
+    return false;
 }
 
 } // namespace ciphyxs

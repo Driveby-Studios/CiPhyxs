@@ -15,7 +15,7 @@
 ########################
 
 //Build the test suite
-CIPHYXS_BUILD_TESTS:BOOL=OFF
+CIPHYXS_BUILD_TESTS:BOOL=ON
 
 //Add compiler flags for SIMD (SSE2/NEON)
 CIPHYXS_ENABLE_SIMD:BOOL=OFF

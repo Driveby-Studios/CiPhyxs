@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_parallel.dir/test_parallel.cpp.obj"
-  "CMakeFiles/test_parallel.dir/test_parallel.cpp.obj.d"
+  "CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj"
+  "CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj.d"
   "libtest_parallel.dll.a"
   "test_parallel.exe"
   "test_parallel.exe.manifest"

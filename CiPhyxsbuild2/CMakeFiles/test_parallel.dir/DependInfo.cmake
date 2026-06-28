@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/CiPhyxs/test_parallel.cpp" "CMakeFiles/test_parallel.dir/test_parallel.cpp.obj" "gcc" "CMakeFiles/test_parallel.dir/test_parallel.cpp.obj.d"
+  "E:/CiPhyxs/Tests/test_parallel.cpp" "CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj" "gcc" "CMakeFiles/test_parallel.dir/Tests/test_parallel.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

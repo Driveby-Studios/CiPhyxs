@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_ccd.dir/test_ccd.cpp.obj"
-  "CMakeFiles/test_ccd.dir/test_ccd.cpp.obj.d"
+  "CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj"
+  "CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj.d"
   "libtest_ccd.dll.a"
   "test_ccd.exe"
   "test_ccd.exe.manifest"

@@ -107,6 +107,7 @@ if(CIPHYXS_BUILD_TESTS)
         Stress_Tests/ChaosDensityTest.cpp
         Stress_Tests/DeterminismTest.cpp
         Stress_Tests/MultibodyCrashTest.cpp
+        Stress_Tests/ExtremeCcdTest.cpp
         )
 
     foreach(src ${STRESS_TEST_SOURCES})

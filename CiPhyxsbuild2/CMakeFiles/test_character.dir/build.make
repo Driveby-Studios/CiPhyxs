@@ -71,29 +71,29 @@ include CMakeFiles/test_character.dir/flags.make
 CMakeFiles/test_character.dir/codegen:
 .PHONY : CMakeFiles/test_character.dir/codegen
 
-CMakeFiles/test_character.dir/test_character.cpp.obj: CMakeFiles/test_character.dir/flags.make
-CMakeFiles/test_character.dir/test_character.cpp.obj: CMakeFiles/test_character.dir/includes_CXX.rsp
-CMakeFiles/test_character.dir/test_character.cpp.obj: E:/CiPhyxs/test_character.cpp
-CMakeFiles/test_character.dir/test_character.cpp.obj: CMakeFiles/test_character.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_character.dir/test_character.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_character.dir/test_character.cpp.obj -MF CMakeFiles\test_character.dir\test_character.cpp.obj.d -o CMakeFiles\test_character.dir\test_character.cpp.obj -c E:\CiPhyxs\test_character.cpp
+CMakeFiles/test_character.dir/Tests/test_character.cpp.obj: CMakeFiles/test_character.dir/flags.make
+CMakeFiles/test_character.dir/Tests/test_character.cpp.obj: CMakeFiles/test_character.dir/includes_CXX.rsp
+CMakeFiles/test_character.dir/Tests/test_character.cpp.obj: E:/CiPhyxs/Tests/test_character.cpp
+CMakeFiles/test_character.dir/Tests/test_character.cpp.obj: CMakeFiles/test_character.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_character.dir/Tests/test_character.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_character.dir/Tests/test_character.cpp.obj -MF CMakeFiles\test_character.dir\Tests\test_character.cpp.obj.d -o CMakeFiles\test_character.dir\Tests\test_character.cpp.obj -c E:\CiPhyxs\Tests\test_character.cpp
 
-CMakeFiles/test_character.dir/test_character.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_character.dir/test_character.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_character.cpp > CMakeFiles\test_character.dir\test_character.cpp.i
+CMakeFiles/test_character.dir/Tests/test_character.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_character.dir/Tests/test_character.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_character.cpp > CMakeFiles\test_character.dir\Tests\test_character.cpp.i
 
-CMakeFiles/test_character.dir/test_character.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_character.dir/test_character.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_character.cpp -o CMakeFiles\test_character.dir\test_character.cpp.s
+CMakeFiles/test_character.dir/Tests/test_character.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_character.dir/Tests/test_character.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_character.cpp -o CMakeFiles\test_character.dir\Tests\test_character.cpp.s
 
 # Object files for target test_character
 test_character_OBJECTS = \
-"CMakeFiles/test_character.dir/test_character.cpp.obj"
+"CMakeFiles/test_character.dir/Tests/test_character.cpp.obj"
 
 # External object files for target test_character
 test_character_EXTERNAL_OBJECTS =
 
-test_character.exe: CMakeFiles/test_character.dir/test_character.cpp.obj
+test_character.exe: CMakeFiles/test_character.dir/Tests/test_character.cpp.obj
 test_character.exe: CMakeFiles/test_character.dir/build.make
 test_character.exe: CMakeFiles/test_character.dir/linkLibs.rsp
 test_character.exe: CMakeFiles/test_character.dir/objects1.rsp

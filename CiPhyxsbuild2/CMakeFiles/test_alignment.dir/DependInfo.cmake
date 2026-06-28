@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/CiPhyxs/test_alignment.cpp" "CMakeFiles/test_alignment.dir/test_alignment.cpp.obj" "gcc" "CMakeFiles/test_alignment.dir/test_alignment.cpp.obj.d"
+  "E:/CiPhyxs/Tests/test_alignment.cpp" "CMakeFiles/test_alignment.dir/Tests/test_alignment.cpp.obj" "gcc" "CMakeFiles/test_alignment.dir/Tests/test_alignment.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

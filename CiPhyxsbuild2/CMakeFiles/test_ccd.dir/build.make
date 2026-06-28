@@ -71,29 +71,29 @@ include CMakeFiles/test_ccd.dir/flags.make
 CMakeFiles/test_ccd.dir/codegen:
 .PHONY : CMakeFiles/test_ccd.dir/codegen
 
-CMakeFiles/test_ccd.dir/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/flags.make
-CMakeFiles/test_ccd.dir/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/includes_CXX.rsp
-CMakeFiles/test_ccd.dir/test_ccd.cpp.obj: E:/CiPhyxs/test_ccd.cpp
-CMakeFiles/test_ccd.dir/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_ccd.dir/test_ccd.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_ccd.dir/test_ccd.cpp.obj -MF CMakeFiles\test_ccd.dir\test_ccd.cpp.obj.d -o CMakeFiles\test_ccd.dir\test_ccd.cpp.obj -c E:\CiPhyxs\test_ccd.cpp
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/flags.make
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/includes_CXX.rsp
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj: E:/CiPhyxs/Tests/test_ccd.cpp
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj: CMakeFiles/test_ccd.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\CiPhyxs\CiPhyxsbuild2\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj -MF CMakeFiles\test_ccd.dir\Tests\test_ccd.cpp.obj.d -o CMakeFiles\test_ccd.dir\Tests\test_ccd.cpp.obj -c E:\CiPhyxs\Tests\test_ccd.cpp
 
-CMakeFiles/test_ccd.dir/test_ccd.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_ccd.dir/test_ccd.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\test_ccd.cpp > CMakeFiles\test_ccd.dir\test_ccd.cpp.i
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\CiPhyxs\Tests\test_ccd.cpp > CMakeFiles\test_ccd.dir\Tests\test_ccd.cpp.i
 
-CMakeFiles/test_ccd.dir/test_ccd.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_ccd.dir/test_ccd.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\test_ccd.cpp -o CMakeFiles\test_ccd.dir\test_ccd.cpp.s
+CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\CiPhyxs\Tests\test_ccd.cpp -o CMakeFiles\test_ccd.dir\Tests\test_ccd.cpp.s
 
 # Object files for target test_ccd
 test_ccd_OBJECTS = \
-"CMakeFiles/test_ccd.dir/test_ccd.cpp.obj"
+"CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj"
 
 # External object files for target test_ccd
 test_ccd_EXTERNAL_OBJECTS =
 
-test_ccd.exe: CMakeFiles/test_ccd.dir/test_ccd.cpp.obj
+test_ccd.exe: CMakeFiles/test_ccd.dir/Tests/test_ccd.cpp.obj
 test_ccd.exe: CMakeFiles/test_ccd.dir/build.make
 test_ccd.exe: CMakeFiles/test_ccd.dir/linkLibs.rsp
 test_ccd.exe: CMakeFiles/test_ccd.dir/objects1.rsp

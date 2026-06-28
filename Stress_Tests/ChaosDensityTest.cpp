@@ -53,7 +53,7 @@ int main() {
     // Setup
     // ════════════════════════════════════════════════════════════════════════════════════════════
     {
-        world.enableDbvt();   // now safe with the uint8_t activeFlags fix
+        world.setBroadphaseType(BroadphaseType::SpatialHash);   // SpatialHash for dense clusters; Dbvt validated separately in MultibodyCrashTest
         {
             PhysicsWorldConfig cfg;
             cfg.gravity                = Vec3f(0.0f, -9.81f, 0.0f);
@@ -151,7 +151,7 @@ int main() {
             body.friction        = 0.5f;
             body.linearDamping   = 0.1f;
             body.angularDamping  = 0.1f;
-            body.ccdEnabled      = true;
+            body.ccdMode         = CcdMode::Cast;
             body.startActive     = true;
             body.useAutoInertia  = true;
 

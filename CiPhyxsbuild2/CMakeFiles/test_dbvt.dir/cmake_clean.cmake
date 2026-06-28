@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj"
-  "CMakeFiles/test_dbvt.dir/test_dbvt.cpp.obj.d"
+  "CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj"
+  "CMakeFiles/test_dbvt.dir/Tests/test_dbvt.cpp.obj.d"
   "libtest_dbvt.dll.a"
   "test_dbvt.exe"
   "test_dbvt.exe.manifest"

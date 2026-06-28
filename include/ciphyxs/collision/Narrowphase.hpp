@@ -110,6 +110,12 @@ inline bool collideConvexMeshTriangleMesh(const TriangleMesh& mesh,
                                            const ConvexMesh& convex, const Vec3f& posC, const Quaternionf& rotC,
                                            ContactManifold& manifold) noexcept;
 
+// ── Sphere-vs-ConvexMesh forward declaration (AABB-based, before collideShapes) ──────────
+inline bool collideSphereConvexMesh(const Sphere& sphere, const Vec3f& posA,
+                                    const ConvexMesh& mesh, const Vec3f& posB,
+                                    const Quaternionf& rotB,
+                                    ContactManifold& manifold) noexcept;
+
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 //  Internal helpers
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -626,6 +632,21 @@ inline bool collideShapes(
         return false;
     }
 
+    // ── Sphere ↔ ConvexMesh (AABB-based, same robust approach as collideSphereBox) ───────────
+    if (a == ST::Sphere && b == ST::ConvexMesh) {
+        return collideSphereConvexMesh(shapeA.sphere, posA,
+                                       shapeB.convexMesh, posB, rotB,
+                                       manifold);
+    }
+    if (a == ST::ConvexMesh && b == ST::Sphere) {
+        bool hit = collideSphereConvexMesh(shapeB.sphere, posB,
+                                           shapeA.convexMesh, posA, rotA,
+                                           manifold);
+        for (int i = 0; i < manifold.pointCount; ++i)
+            manifold.points[i].normal = -manifold.points[i].normal;
+        return hit;
+    }
+
     // ── ConvexMesh pairs (GJK/EPA) ─────────────────────────────────────────────────────────
     if ((a == ST::ConvexMesh || b == ST::ConvexMesh) && a != ST::Plane && b != ST::Plane) {
         // Any convex-convex pair except Plane (handled separately below).
@@ -650,6 +671,63 @@ inline bool collideShapes(
     // Unsupported pair – no collision.
     return false;
 }
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+//  Sphere ↔ ConvexMesh (AABB-based, same as collideSphereBox)
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Sphere vs ConvexMesh collision using AABB-based point-to-mesh distance.
+///         Uses the mesh's halfExtents and center for a fast conservative test.
+inline bool collideSphereConvexMesh(const Sphere& sphere, const Vec3f& posA,
+                                    const ConvexMesh& mesh, const Vec3f& posB,
+                                    const Quaternionf& rotB,
+                                    ContactManifold& manifold) noexcept {
+    // Transform sphere centre into mesh local space.
+    Vec3f localPos = rotB.rotateInverse(posA - posB);
+    Vec3f he       = mesh.halfExtents;
+    Vec3f center   = mesh.center;
+
+    // Closest point on AABB (in local space).
+    Vec3f closest = Vec3f(
+        detail::clamp(localPos.x, center.x - he.x, center.x + he.x),
+        detail::clamp(localPos.y, center.y - he.y, center.y + he.y),
+        detail::clamp(localPos.z, center.z - he.z, center.z + he.z)
+    );
+
+    Vec3f diff    = localPos - closest;
+    float distSq  = diff.lengthSquared();
+    if (distSq >= sphere.radius * sphere.radius) return false;
+
+    float dist = std::sqrt(distSq);
+
+    Vec3f normalLocal;
+    if (dist > 1e-8f) {
+        normalLocal = diff / dist;
+    } else {
+        // Sphere centre is inside the AABB — push out along axis of least penetration.
+        float minPen = (center.x + he.x) - std::abs(localPos.x - center.x);
+        int axis     = 0;
+        float penY   = (center.y + he.y) - std::abs(localPos.y - center.y);
+        if (penY < minPen) { minPen = penY; axis = 1; }
+        float penZ   = (center.z + he.z) - std::abs(localPos.z - center.z);
+        if (penZ < minPen) { minPen = penZ; axis = 2; }
+        normalLocal = Vec3f::zero();
+        normalLocal[axis] = (localPos[axis] >= center[axis]) ? 1.0f : -1.0f;
+        dist = 0.0f;
+    }
+
+    Vec3f normalWorld = rotB.rotate(normalLocal).normalized();
+    float pen = sphere.radius - dist;
+
+    ContactPoint pt;
+    pt.position    = rotB.rotate(closest) + posB;  // world-space closest point
+    pt.normal      = normalWorld;
+    pt.penetration = std::max(pen, 0.001f);
+    pt.featureA    = 0;
+    pt.featureB    = -1;
+    manifold.addPoint(pt);
+    return true;
+}
+
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 //  Sphere ↔ Sphere
 // ────────────────────────────────────────────────────────────────────────────────────────────────
