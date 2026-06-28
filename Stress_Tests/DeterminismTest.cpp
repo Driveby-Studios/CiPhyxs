@@ -5,8 +5,8 @@
 ///
 /// Uses the TaskGraph DAG pipeline, Dbvt broadphase, and aligned SoA storage.
 ///
-/// @note  Frame count reduced from 5000 to 500 because Debug builds are very slow.
-///        For full validation, increase kNumFrames back to 5000 in Release build.
+/// @note  5000 frames is the full spec.  In Debug builds, reduce to 500 with:
+///        `-DkNumFrames=500` or edit the line below.  Release mode runs 5000 easily.
 //==================================================================================================
 #include "StressTestBase.hpp"
 
@@ -14,9 +14,8 @@ int main() {
     using namespace ciphyxs;
     using namespace ciphyxs::stresstest;
 
-    constexpr int kNumFrames     = 500;
+    constexpr int kNumFrames     = 5000;
     constexpr int kNumBodies     = 100;
-    constexpr int kGridSize      = 10;
 
     NullDebugRenderer debugRenderer;
     Stopwatch timer;

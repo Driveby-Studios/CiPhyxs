@@ -178,9 +178,10 @@ struct RigidBodyStorage {
         std::vector<std::uint32_t> shapeCount;                  ///< Per-body sub-shape count (0 = no collision).
 
     // ─── Flags ──────────────────────────────────────────────────────────────────────────────────
-    std::vector<MotionType> motionTypes;
-    std::vector<bool>       activeFlags;        ///< False = sleeping / disabled.
-    std::vector<bool>       ccdFlags;           ///< True = continuous collision detection enabled.
+    std::vector<MotionType>  motionTypes;
+    AlignedVector<uint8_t, 16> activeFlags;     ///< 1 = active, 0 = sleeping/disabled.  uint8_t (not vector<bool>)
+                                                 ///< avoids the bitset-proxy data race in worker-thread reads.
+    AlignedVector<uint8_t, 16> ccdFlags;        ///< 1 = CCD enabled, 0 = disabled.
     AlignedVector<float, 16> sleepTimers;
 
     // ─── Memory management ──────────────────────────────────────────────────────────────────────
@@ -257,8 +258,8 @@ struct RigidBodyStorage {
         }
 
         motionTypes.emplace_back(desc.motionType);
-        activeFlags.emplace_back(desc.startActive);
-        ccdFlags.emplace_back(desc.ccdEnabled);
+        activeFlags.emplace_back(desc.startActive ? uint8_t(1) : uint8_t(0));
+        ccdFlags.emplace_back(desc.ccdEnabled   ? uint8_t(1) : uint8_t(0));
         sleepTimers.emplace_back(0.0f);
 
         return h;

@@ -133,8 +133,8 @@ inline void generateSpatialHashPairs(
     }
 
     // ── 2. Build the hash grid ──────────────────────────────────────────────────────────
-    static detail::Grid s_grid;          // persistent to reuse capacity
-    detail::buildGrid(s_grid, bodies, config.cellSize);
+    detail::Grid grid;                   // local (not static) for thread safety
+    detail::buildGrid(grid, bodies, config.cellSize);
 
     // ── 3. Query neighbours for each active body ────────────────────────────────────────
     for (std::size_t i = 0; i < n; ++i) {
@@ -149,8 +149,8 @@ inline void generateSpatialHashPairs(
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dz = -1; dz <= 1; ++dz) {
                     detail::Cell nbr{base.x + dx, base.y + dy, base.z + dz};
-                    auto it = s_grid.find(nbr);
-                    if (it == s_grid.end()) continue;
+                    auto it = grid.find(nbr);
+                    if (it == grid.end()) continue;
 
                     for (RigidBodyHandle j : it->second) {
                         // Process each unordered pair only once (i < j).

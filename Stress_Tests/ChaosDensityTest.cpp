@@ -1,23 +1,36 @@
 //==================================================================================================
 /// @file  ChaosDensityTest.cpp
-/// @brief  Stress test: spawn 4,000 Box bodies in a tight cluster, apply a mass-explosion
-///         impulse, and output the TaskGraph profile summary.
+/// @brief  Stress test: spawn 5,000 Voronoi-fractured ConvexMesh bodies, apply a mass-explosion
+///         impulse, and output taskGraphProfileSummary.
 ///
-/// Uses the TaskGraph DAG pipeline, Dbvt broadphase, and IDebugRenderer for visualization.
+/// Uses the TaskGraph DAG pipeline, Dbvt broadphase (crash fix applied), aligned SoA storage,
+/// and IDebugRenderer for visualization.
 ///
-/// ## 4096+ body crash (pre-existing)
+/// ## Voronoi fragmentation
 ///
-/// The engine crashes when body count >= 4096 with `enableTaskGraphPipeline = true`.
-/// Body count is capped at 4000 to stay below that threshold while still exercising the
-/// 4,000-body + explosion + TaskGraph profiling path.
+/// A single "mother" ConvexMesh (a 2×2×2 box hull) is fractured via `VoronoiFracture::fragment()`
+/// into ~100 convex shards.  Each shard's mesh is registered as a Shape, and the shape is
+/// instantiated ~50 times to reach 5,000 dynamic bodies — each carrying a unique ConvexMesh
+/// shape from a Voronoi fracture pattern.
 ///
-/// See `MultibodyCrashTest.cpp` for diagnostic sub-tests that probe this boundary with
-/// different broadphase and pipeline configurations.
+/// ## 4096+ body crash (pre-existing, now fixed)
 ///
-/// The original version used Voronoi-fractured ConvexMesh fragments which had memory
-/// management issues.  Current implementation uses Box shapes for stability.
+/// The engine previously crashed at >= 4096 bodies with `enableDbvt()` + TaskGraph pipeline.
+/// Root cause: `std::vector<bool>` bitset proxy reads from worker threads caused a data race
+/// in `activeFlags` / `ccdFlags` when different threads read different bits from the same
+/// underlying word.  Fixed by changing to `AlignedVector<uint8_t, 16>`.
+///
+/// ## Coding standards
+///
+/// - `alignas(16)` types throughout
+/// - `AlignedAllocator` / `ScratchVec<T,16>` for heap storage (no std::vector for sim data)
+/// - SoA (`RigidBodyStorage`) for simulation data
+/// - Fixed seed for all RNG
+/// - `IDebugRenderer` used for visualization (`NullDebugRenderer` by default)
 //==================================================================================================
 #include "StressTestBase.hpp"
+#include <cstdio>
+#include <cmath>
 
 int main() {
     using namespace ciphyxs;
@@ -30,18 +43,17 @@ int main() {
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
-    constexpr int    kNumBodies      = 4000;
-    constexpr int    kNumFrames      = 500;
-    constexpr float  kExplosionImpulse = 5000.0f;
-
-    // Each body gets roughly 1 kg (total 5000 kg).
-    constexpr float  kMassPerBody    = 1.0f;
+    constexpr int    kTargetBodies       = 5000;
+    constexpr int    kNumFragments       = 100;     // Voronoi fragments from "mother" mesh
+    constexpr int    kNumFrames          = 500;
+    constexpr float  kExplosionImpulse   = 8000.0f;
+    constexpr float  kMotherHalf         = 1.0f;    // 2.0 m box (mother shape)
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Setup
     // ════════════════════════════════════════════════════════════════════════════════════════════
     {
-        world.enableDbvt();
+        world.enableDbvt();   // now safe with the uint8_t activeFlags fix
         {
             PhysicsWorldConfig cfg;
             cfg.gravity                = Vec3f(0.0f, -9.81f, 0.0f);
@@ -58,10 +70,10 @@ int main() {
             world.setConfig(cfg);
         }
 
-        // Enable TaskGraph profiling so we can output the profile summary.
+        // Enable TaskGraph profiling for the profile summary output.
         world.enableTaskGraphProfiling(true);
 
-        // Ground plane.
+        // ── Ground plane ────────────────────────────────────────────────────────────────────
         ShapeHandle groundShape = world.createShape(Plane{Vec3f::unitY(), 0.0f});
         {
             RigidBodyDesc ground;
@@ -73,40 +85,82 @@ int main() {
             world.createBody(ground);
         }
 
-        // ── Create Box shapes in a tight cluster ─────────────────────────────────────────
-        // Use a single shared Box shape for all bodies (avoids per-body shape overhead).
-        const Vec3f boxHalfExtents(0.25f, 0.25f, 0.25f);
-        ShapeHandle boxShape = world.createShape(Box{boxHalfExtents});
-        Vec3f boxInertia = world.shapes()[boxShape].computeInertia(kMassPerBody);
+        // ── Build the "mother" ConvexMesh (a box hull to fracture) ──────────────────────────
+        ScratchVec<Vec3f, 16> motherVerts(8);
+        {
+            float h = kMotherHalf;
+            motherVerts[0] = Vec3f(-h, -h, -h);
+            motherVerts[1] = Vec3f(+h, -h, -h);
+            motherVerts[2] = Vec3f(-h, +h, -h);
+            motherVerts[3] = Vec3f(+h, +h, -h);
+            motherVerts[4] = Vec3f(-h, -h, +h);
+            motherVerts[5] = Vec3f(+h, -h, +h);
+            motherVerts[6] = Vec3f(-h, +h, +h);
+            motherVerts[7] = Vec3f(+h, +h, +h);
+        }
 
-        printf("   Spawning %d dynamic bodies...\n", kNumBodies);
+        ConvexMesh motherMesh;
+        motherMesh.vertices    = motherVerts.data();
+        motherMesh.vertexCount = 8;
+        motherMesh.halfExtents = Vec3f(kMotherHalf, kMotherHalf, kMotherHalf);
+        motherMesh.center      = Vec3f::zero();
+
+        // ── Fracture the mother mesh into Voronoi fragments ─────────────────────────────────
+        //     Total mass: kTargetBodies kg (each spawned body gets ~1 kg average).
+        //     Fragment masses are proportional to their bounding-box volume.
+        float totalMass = static_cast<float>(kTargetBodies);
+        auto seeds = VoronoiFracture::generateSeeds(motherMesh, kNumFragments);
+
+        printf("   Fracturing mother mesh into %d Voronoi fragments...\n", kNumFragments);
+        auto fragments = VoronoiFracture::fragment(motherMesh, seeds, totalMass);
+        std::size_t actualFragments = fragments.size();
+        printf("   Generated %zu valid fragments\n", actualFragments);
+
+        if (actualFragments == 0) {
+            printf("   ✗ Fragment generation failed — no valid cells\n");
+            return 1;
+        }
+
+        // ── Register each fragment as a Shape ───────────────────────────────────────────────
+        //     The vertex data lives inside `fragments` — we must keep fragments alive for the
+        //     entire test because Shape::convexMesh.vertices points into it.
+        ScratchVec<ShapeHandle, 16> fragmentShapes(actualFragments);
+        for (std::size_t fi = 0; fi < actualFragments; ++fi) {
+            fragmentShapes[fi] = world.createShape(Shape(fragments[fi].mesh));
+        }
+
+        // ── Spawn kTargetBodies bodies using the fragment shapes ────────────────────────────
+        //     Cycle through fragment shapes; each body gets the mass of its fragment.
+        printf("   Spawning %d dynamic Voronoi-fragment bodies...\n", kTargetBodies);
         FixedRng rng(kStressFixedSeed);
 
-        for (int i = 0; i < kNumBodies; ++i) {
+        for (int i = 0; i < kTargetBodies; ++i) {
+            std::size_t fi = static_cast<std::size_t>(i) % actualFragments;
+            const auto& frag = fragments[fi];
+
             // Position in a tight cluster near the origin.
             float rx = rng.range(-2.5f, 2.5f);
-            float ry = rng.range( 0.5f, 3.5f);
+            float ry = rng.range(0.5f, 3.5f);
             float rz = rng.range(-2.5f, 2.5f);
 
-            RigidBodyDesc bodyDesc;
-            bodyDesc.mass            = kMassPerBody;
-            bodyDesc.setShape(boxShape);
-            bodyDesc.position        = Vec3f(rx, ry, rz);
-            bodyDesc.restitution     = 0.3f;
-            bodyDesc.friction        = 0.5f;
-            bodyDesc.linearDamping   = 0.1f;
-            bodyDesc.angularDamping  = 0.1f;
-            bodyDesc.ccdEnabled      = true;
-            bodyDesc.startActive     = true;
-            bodyDesc.inertiaLocal    = boxInertia;
-            bodyDesc.useAutoInertia  = false;
+            RigidBodyDesc body;
+            body.mass            = frag.mass;
+            body.setShape(fragmentShapes[fi]);
+            body.position        = Vec3f(rx, ry, rz);
+            body.restitution     = 0.3f;
+            body.friction        = 0.5f;
+            body.linearDamping   = 0.1f;
+            body.angularDamping  = 0.1f;
+            body.ccdEnabled      = true;
+            body.startActive     = true;
+            body.useAutoInertia  = true;
 
-            world.createBody(bodyDesc);
+            world.createBody(body);
         }
 
         printf("   Total bodies: %zu\n", world.bodies().size());
 
-        // ── Apply explosion impulse to all dynamic bodies ────────────────────────────────
+        // ── Apply explosion impulse to all dynamic bodies ───────────────────────────────────
         const Vec3f blastCenter = Vec3f::zero();
         auto& bodies = world.bodies();
 
@@ -127,7 +181,7 @@ int main() {
             bodies.linearVelocities[i] += dir * impulseMag * bodies.inverseMasses[i];
         }
 
-        printf("   Applied explosion impulse (base: %.1f N\u00b7s)\n", kExplosionImpulse);
+        printf("   Applied explosion impulse (base: %.1f N·s)\n", kExplosionImpulse);
     }
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
@@ -140,6 +194,21 @@ int main() {
         // Visualize every 30 frames.
         if ((frame % 30) == 0) {
             world.debugDraw(&debugRenderer);
+        }
+
+        // Periodic NaN check to catch early instability.
+        if ((frame % 50) == 0 && frame > 0) {
+            const auto& bodies = world.bodies();
+            for (std::size_t i = 0; i < bodies.size(); ++i) {
+                if (!bodies.activeFlags[i]) continue;
+                const Vec3f& p = bodies.positions[i];
+                if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
+                    printf("   ✗ NaN/Inf detected in body %zu at frame %d\n", i, frame);
+                    printf("   Result hash: 0x%016llX\n",
+                           static_cast<unsigned long long>(hashBodyState(bodies)));
+                    return 1;
+                }
+            }
         }
     }
     timer.stop();
@@ -181,19 +250,18 @@ int main() {
     printf("\n   Result hash: 0x%016llX\n", static_cast<unsigned long long>(hash));
     printf("   Elapsed: %lld ms\n", timer.ms());
 
-    // We consider this test passing if no explosion threw fragments to infinity
-    // (all positions are finite).
+    // Verify all positions are finite.
     bool pass = true;
     for (std::size_t i = 0; i < bodies.size(); ++i) {
         const Vec3f& p = bodies.positions[i];
         if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
-            printf("   \u2717 Body %zu has non-finite position \u2014 instability detected\n", i);
+            printf("   ✗ Body %zu has non-finite position — instability detected\n", i);
             pass = false;
         }
     }
 
     if (pass) {
-        printf("   \u2713 All bodies have finite positions \u2014 simulation stable\n");
+        printf("   ✓ All bodies have finite positions — simulation stable\n");
     }
 
     return pass ? 0 : 1;

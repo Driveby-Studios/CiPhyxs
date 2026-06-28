@@ -591,7 +591,7 @@ public:
     /// @param flatShapeLocalPos   Flat sub-shape local positions.
     /// @param flatShapeLocalRot   Flat sub-shape local rotations.
     /// @param shapes              Shape registry (indexed by ShapeHandle).
-    /// @param activeFlags         Active flags of each rigid body (vector).
+    /// @param activeFlags         Non-zero = active (uint8_t array, length numRigidBodies).
     void step(float dt, SoftBody& body,
               std::size_t numRigidBodies,
               const Vec3f* bodyPositions,
@@ -602,7 +602,7 @@ public:
               const Vec3f* flatShapeLocalPositions,
               const Quaternionf* flatShapeLocalRotations,
               const Shape* shapes,
-              const std::vector<bool>& activeFlags) const noexcept {
+              const uint8_t* activeFlags) const noexcept {
 
         if (body.particleCount() == 0) return;
 
@@ -1017,7 +1017,7 @@ private:
                                        const Vec3f* flatShapeLocalPositions,
                                        const Quaternionf* flatShapeLocalRotations,
                                        const Shape* shapes,
-                                       const std::vector<bool>& activeFlags) noexcept {
+                                       const uint8_t* activeFlags) noexcept {
         float margin = body.collisionMargin;
 
         // For each particle, test against all rigid bodies.
@@ -1028,7 +1028,7 @@ private:
             Vec3f& pos = body.positions[pIdx];
 
             for (std::size_t rb = 0; rb < numRigidBodies; ++rb) {
-                if (rb >= activeFlags.size() || !activeFlags[rb]) continue;
+                if (!activeFlags[rb]) continue;
 
                 std::uint32_t sStart = shapeStart[rb];
                 std::uint32_t sCount = shapeCount[rb];

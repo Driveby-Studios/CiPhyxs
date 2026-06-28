@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
 ![Header-Only](https://img.shields.io/badge/header--only-✓-brightgreen)
-[![CI](https://github.com/REPO_OWNER/CiPhyxs/actions/workflows/ci.yml/badge.svg)](https://github.com/REPO_OWNER/CiPhyxs/actions/workflows/ci.yml)
+[![CI](https://github.com/Driveby-Studios/CiPhyxs/actions/workflows/ci.yml/badge.svg)](https://github.com/REPO_OWNER/CiPhyxs/actions/workflows/ci.yml)
 ![GCC](https://img.shields.io/badge/GCC-11%2B-blue)
 ![Clang](https://img.shields.io/badge/Clang-14%2B-blue)
 ![MSVC](https://img.shields.io/badge/MSVC-2022%2B-blue)

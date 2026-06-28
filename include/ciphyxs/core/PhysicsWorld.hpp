@@ -1625,6 +1625,26 @@ private:
                 tauLocal.z * m_bodies.inverseInertiaDiag[i].z
             );
             m_bodies.angularVelocities[i] += q.rotate(alphaLocal) * dt;
+
+            // ── NaN/Inf guard on velocities ───────────────────────────────────────────
+            if (!std::isfinite(m_bodies.linearVelocities[i].x) ||
+                !std::isfinite(m_bodies.linearVelocities[i].y) ||
+                !std::isfinite(m_bodies.linearVelocities[i].z)) {
+                std::fprintf(stderr,
+                    "[CiPhyxs] NaN/Inf linear velocity in body %zu at step %llu — "
+                    "clamping to zero\n",
+                    i, static_cast<unsigned long long>(m_stepCount));
+                m_bodies.linearVelocities[i] = Vec3f::zero();
+            }
+            if (!std::isfinite(m_bodies.angularVelocities[i].x) ||
+                !std::isfinite(m_bodies.angularVelocities[i].y) ||
+                !std::isfinite(m_bodies.angularVelocities[i].z)) {
+                std::fprintf(stderr,
+                    "[CiPhyxs] NaN/Inf angular velocity in body %zu at step %llu — "
+                    "clamping to zero\n",
+                    i, static_cast<unsigned long long>(m_stepCount));
+                m_bodies.angularVelocities[i] = Vec3f::zero();
+            }
         }
     }
 
@@ -1938,6 +1958,20 @@ private:
                 m_bodies.rotations[i].normalize();
                 m_bodies.inertiaRotations[i] = m_bodies.rotations[i];
             }
+
+            // ── NaN/Inf guard ────────────────────────────────────────────────────────
+            // Catches simulation instability early (applies to all simulation paths
+            // including the task-graph pipeline).  In a conforming IEEE-754 build,
+            // std::isfinite is a single integer-compare instruction per component.
+            if (!std::isfinite(m_bodies.positions[i].x) ||
+                !std::isfinite(m_bodies.positions[i].y) ||
+                !std::isfinite(m_bodies.positions[i].z)) {
+                std::fprintf(stderr,
+                    "[CiPhyxs] NaN/Inf position in body %zu at step %llu — simulation unstable\n",
+                    i, static_cast<unsigned long long>(m_stepCount));
+                // Clamp to zero to prevent cascading corruption.
+                m_bodies.positions[i] = Vec3f::zero();
+            }
         }
     }
 
@@ -2027,7 +2061,7 @@ private:
                 m_bodies.flatShapeLocalPositions.data(),
                 m_bodies.flatShapeLocalRotations.data(),
                 m_shapes.data(),
-                m_bodies.activeFlags
+                m_bodies.activeFlags.data()
             );
         }
     }

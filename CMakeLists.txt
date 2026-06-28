@@ -56,24 +56,24 @@ if(CIPHYXS_BUILD_TESTS)
     enable_testing()
 
     set(TEST_SOURCES
-        test_alignment.cpp
-        test_collision.cpp
-        test_final.cpp
-        test_joints.cpp
-        test_new_features.cpp
-        test_parallel.cpp
-        test_sap.cpp
-        test_convexmesh.cpp
-        test_trimesh.cpp
-        test_ccd.cpp
-        test_ragdoll.cpp
-        test_dbvt.cpp
-        test_contactreduction.cpp
-        test_vehicle.cpp
-        test_character.cpp
-        test_taskgraph.cpp
-        test_softbody.cpp
-        test_fracture.cpp
+        Tests/test_alignment.cpp
+        Tests/test_collision.cpp
+        Tests/test_final.cpp
+        Tests/test_joints.cpp
+        Tests/test_new_features.cpp
+        Tests/test_parallel.cpp
+        Tests/test_sap.cpp
+        Tests/test_convexmesh.cpp
+        Tests/test_trimesh.cpp
+        Tests/test_ccd.cpp
+        Tests/test_ragdoll.cpp
+        Tests/test_dbvt.cpp
+        Tests/test_contactreduction.cpp
+        Tests/test_vehicle.cpp
+        Tests/test_character.cpp
+        Tests/test_taskgraph.cpp
+        Tests/test_softbody.cpp
+        Tests/test_fracture.cpp
         )
 
     foreach(src ${TEST_SOURCES})
@@ -94,6 +94,8 @@ if(CIPHYXS_BUILD_TESTS)
         endif()
 
         target_link_libraries(${name} PRIVATE ciphyxs)
+        # Add the project root so tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
+        target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         add_test(NAME ${name} COMMAND ${name})
     endforeach()
 
@@ -124,6 +126,8 @@ if(CIPHYXS_BUILD_TESTS)
         endif()
 
         target_link_libraries(${name} PRIVATE ciphyxs)
+        # Add the project root so stress tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
+        target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         add_test(NAME ${name} COMMAND ${name})
     endforeach()
 

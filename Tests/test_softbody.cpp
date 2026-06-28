@@ -418,14 +418,15 @@ int main() {
 
         // Run the solver.
         SoftBodySolver solver;
-        const std::vector<bool> emptyActive;
+        // numRigidBodies = 0, so activeFlags is never dereferenced.
+        const std::vector<uint8_t> emptyActive;
 
         for (int iter = 0; iter < 10; ++iter) {
             solver.step(1.0f / 60.0f, sb,
                         0, nullptr, nullptr,
                         nullptr, nullptr,
                         nullptr, nullptr, nullptr,
-                        nullptr, emptyActive);
+                        nullptr, emptyActive.data());
         }
 
         // After 10 iterations, the two clusters should have separated.

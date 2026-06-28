@@ -20,15 +20,15 @@ int main() {
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
-    constexpr int    kNumBoxes      = 200;
-    constexpr int    kNumFrames     = 2000;
+    constexpr int    kNumBoxes      = 400;
+    constexpr int    kNumFrames     = 4000;
     constexpr float  kBoxHalf       = 0.35f;
     constexpr float  kStackSpacing  = 0.72f;
 
-    // Build a dense block: 8 wide x 5 deep x 5 high = 200 boxes
-    constexpr int kWallW = 8;
+    // Build a dense block: 10 wide x 5 deep x 8 high = 400 boxes
+    constexpr int kWallW = 10;
     constexpr int kWallD = 5;
-    constexpr int kWallH = 5;
+    constexpr int kWallH = 8;
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Setup
