@@ -1,0 +1,114 @@
+#==================================================================================================
+# CI workflow for CiPhyxs — builds and tests on GCC, Clang, and MSVC
+#
+# Triggers:
+#   - Push to main / master / develop
+#   - Pull request to main / master
+#==================================================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ─── Ubuntu — GCC ──────────────────────────────────────────────────────────────────────────────
+  ubuntu-gcc:
+    name: Ubuntu GCC ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCIPHYXS_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # ─── Ubuntu — Clang ────────────────────────────────────────────────────────────────────────────
+  ubuntu-clang:
+    name: Ubuntu Clang ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake (Clang)
+        run: >
+          cmake -B build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCIPHYXS_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # ─── macOS — AppleClang ────────────────────────────────────────────────────────────────────────
+  macos:
+    name: macOS ${{ matrix.build_type }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCIPHYXS_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # ─── Windows — MSVC ────────────────────────────────────────────────────────────────────────────
+  windows-msvc:
+    name: Windows MSVC ${{ matrix.build_type }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        # Multi-config generator — no CMAKE_BUILD_TYPE needed at configure time.
+        run: cmake -B build -DCIPHYXS_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -C ${{ matrix.build_type }}
+
+  # ─── Windows — Clang-CL ────────────────────────────────────────────────────────────────────────
+  windows-clangcl:
+    name: Windows Clang-CL ${{ matrix.build_type }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake (Clang-CL)
+        run: >
+          cmake -B build
+          -T ClangCL
+          -DCIPHYXS_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -C ${{ matrix.build_type }}

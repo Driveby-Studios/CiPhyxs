@@ -1,0 +1,29 @@
+# Build outputs
+build/
+*.exe
+*.obj
+*.lib
+*.dll
+*.so
+*.dylib
+*.a
+NUL
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Doxygen output
+doc/html
+doc/latex
+
+# Compiled test binaries
+test_*.exe

@@ -1,0 +1,25 @@
+# CiPhyxs C++ Code Style
+# Based on LLVM style with modifications for readability.
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: Never
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+ColumnLimit: 110
+PointerAlignment: Left
+SpaceBeforeParens: ControlStatements
+SpaceAfterTemplateKeyword: false
+AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+AlignAfterOpenBracket: Align
+BinPackParameters: true
+BinPackArguments: true
+BreakConstructorInitializers: BeforeColon
+AllowAllConstructorInitializersOnNextLine: true
+FixNamespaceComments: true
+NamespaceIndentation: None
+SeparateDefinitionBlocks: Leave
