@@ -1,5 +1,8 @@
 # Build outputs
 build/
+CiPhyxsbuild/
+CiPhyxsbuild2/
+CiPhyxsbuild_release/
 *.exe
 *.obj
 *.lib
