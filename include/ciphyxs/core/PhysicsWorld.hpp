@@ -28,6 +28,7 @@
 #include "../collision/ContactReduction.hpp"
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <span>
 #include <cstdint>
 #include <limits>
@@ -1742,6 +1743,14 @@ private:
         // ── Execute the graph ──────────────────────────────────────────────────────────────
         graph.execute(ensureThreadPool());
 
+        // Accumulate profile events across frames if profiling is enabled.
+        if (graph.isProfilingEnabled()) {
+            const auto& events = graph.profileEvents();
+            m_accumulatedProfileEvents.insert(
+                m_accumulatedProfileEvents.end(),
+                events.begin(), events.end());
+        }
+
         ++m_stepCount;
     }
 
@@ -1875,13 +1884,27 @@ private:
 
                 // --- NaN/Inf guard + speed cap (always-on — prevents NaN propagation
                 //     that causes extreme FPU slowdown and solver instability) ---
+                // Uses batch-4 SIMD paths for velocity clamping and NaN detection.
                 constexpr float kMaxSpeed = 500.0f;
                 {
-                    auto* hLinVels = h.linearVelocities.data();
-                    auto* hAngVels = h.angularVelocities.data();
-                    for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+                    std::size_t ai = 0;
+                    std::size_t count = m_activeDynamicIndices.size();
+                    for (; ai + 4 <= count; ai += 4) {
+                        std::size_t idx[4] = {
+                            m_activeDynamicIndices[ai + 0],
+                            m_activeDynamicIndices[ai + 1],
+                            m_activeDynamicIndices[ai + 2],
+                            m_activeDynamicIndices[ai + 3]
+                        };
+                        clampVelocityBatch4(idx,
+                            h.linearVelocities.data(),
+                            h.angularVelocities.data(),
+                            kMaxSpeed);
+                    }
+                    // Scalar remainder for the last 0-3 bodies.
+                    for (; ai < count; ++ai) {
                         std::size_t i = m_activeDynamicIndices[ai];
-                        Vec3f& v = hLinVels[i];
+                        Vec3f& v = h.linearVelocities[i];
                         if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z)) {
                             v = Vec3f::zero();
                         } else {
@@ -1890,7 +1913,7 @@ private:
                                 v *= kMaxSpeed / std::sqrt(speedSq);
                             }
                         }
-                        Vec3f& w = hAngVels[i];
+                        Vec3f& w = h.angularVelocities[i];
                         if (!std::isfinite(w.x) || !std::isfinite(w.y) || !std::isfinite(w.z)) {
                             w = Vec3f::zero();
                         } else {
@@ -1917,7 +1940,39 @@ private:
         auto h = m_bodies.hot();  // hot view for velocity checks
 
         // Use active-dynamic index array instead of scanning all bodies.
-        for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+        // Use batch-4 SIMD speed threshold check for early-out on slow batches.
+        std::size_t ai = 0;
+        std::size_t count = m_activeDynamicIndices.size();
+        for (; ai + 4 <= count; ai += 4) {
+            std::size_t idx[4] = {
+                m_activeDynamicIndices[ai + 0],
+                m_activeDynamicIndices[ai + 1],
+                m_activeDynamicIndices[ai + 2],
+                m_activeDynamicIndices[ai + 3]
+            };
+
+            // Batch speed threshold check: returns 4-bit mask.
+            int bits = ccdSpeedThresholdBatch4(idx,
+                h.linearVelocities.data(), speedThresh);
+            if (bits == 0) continue;  // All 4 bodies below threshold — skip batch.
+
+            for (int b = 0; b < 4; ++b) {
+                if (!(bits & (1 << b))) continue;  // This body below threshold.
+                std::size_t i = idx[b];
+                CcdMode mode = static_cast<CcdMode>(m_bodies.ccdModes[i]);
+                if (mode == CcdMode::None) continue;
+                if (m_bodies.shapeCount[i] == 0) continue;
+
+                RigidBodyHandle hh = static_cast<RigidBodyHandle>(i);
+                ccdResolveBody(hh, dt, m_bodies, m_shapes,
+                               m_bodies.restitutions[hh],
+                               m_bodies.frictions[hh],
+                               mode);
+            }
+        }
+
+        // Scalar remainder for the last 0-3 bodies.
+        for (; ai < count; ++ai) {
             std::size_t i = m_activeDynamicIndices[ai];
             CcdMode mode = static_cast<CcdMode>(m_bodies.ccdModes[i]);
             if (mode == CcdMode::None) continue;
@@ -2302,7 +2357,36 @@ private:
     void updateSleep(float dt) {
         auto h = m_bodies.hot();  // hot view for velocity reads
 
-        for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+        // Aligned pointers for SIMD-friendly access.
+        float*   sleepTimers = std::assume_aligned<16>(m_bodies.sleepTimers.data());
+        uint8_t* activeFlags = std::assume_aligned<16>(m_bodies.activeFlags.data());
+
+        // SIMD batch-4 loop with scalar remainder.
+        // The batch function computes |v|² + |w|² for 4 bodies at once, then
+        // falls back to per-body branches for the timer/flag writes (uint8_t
+        // writes and conditional branches are not SIMD-friendly).
+        std::size_t ai = 0;
+        std::size_t count = m_activeDynamicIndices.size();
+
+        for (; ai + 4 <= count; ai += 4) {
+            std::size_t idx[4] = {
+                m_activeDynamicIndices[ai + 0],
+                m_activeDynamicIndices[ai + 1],
+                m_activeDynamicIndices[ai + 2],
+                m_activeDynamicIndices[ai + 3]
+            };
+            updateSleepBatch4(idx,
+                h.linearVelocities.data(),
+                h.angularVelocities.data(),
+                sleepTimers,
+                activeFlags,
+                dt,
+                m_config.sleepEnergyThreshold,
+                m_config.sleepTimeRequired);
+        }
+
+        // Scalar remainder for the last 0-3 bodies.
+        for (; ai < count; ++ai) {
             std::size_t i = m_activeDynamicIndices[ai];
 
             float eKin = h.linearVelocities[i].lengthSquared()
@@ -2520,6 +2604,9 @@ private:
     /// @brief  Reusable task graph for the pipeline (rebuilt every fixed step).
     TaskGraph                         m_taskGraph;
 
+    /// @brief  Accumulated profile events across all frames (for multi-frame summary).
+    mutable std::vector<TaskGraph::ProfileEvent> m_accumulatedProfileEvents;
+
     // ─── Active body index array (avoids branching on activeFlags[] in hot loops) ─────────
     /// Compact array of handles for all active dynamic bodies, rebuilt every frame after
     /// the sleep phase. Hot loops iterate this array instead of all bodies with
@@ -2537,7 +2624,113 @@ private:
             }
         }
     }
+
+    /// @brief  Auto-tune the spatial hash cell size based on body density.
+    ///
+    /// Uses a simple spacing heuristic: compute the diagonal of all bodies'
+    /// bounding box, then estimate average spacing as diagonal / cbrt(N).
+    /// Cell size = max(1.0f, avgSpacing * 2.0f).  This prevents degenerate
+    /// O(n²) broadphase behaviour when many bodies are densely packed
+    /// (e.g., 5000 Voronoi fragments in 5×5×5m with default 4.0m cells).
+    ///
+    /// Call this once after creating all bodies, before the first step().
+    /// Only effective when broadphase type is SpatialHash.
+    void autoTuneSpatialHashCellSize() noexcept {
+        if (m_bodies.size() < 2) {
+            m_broadphaseConfig.spatialHashCellSize = 4.0f;  // safe default
+            return;
+        }
+
+        // Compute bounding box of all body positions.
+        Vec3f bmin = Vec3f(+1e10f, +1e10f, +1e10f);
+        Vec3f bmax = Vec3f(-1e10f, -1e10f, -1e10f);
+        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
+            const Vec3f& p = m_bodies.positions[i];
+            bmin.x = std::min(bmin.x, p.x);
+            bmin.y = std::min(bmin.y, p.y);
+            bmin.z = std::min(bmin.z, p.z);
+            bmax.x = std::max(bmax.x, p.x);
+            bmax.y = std::max(bmax.y, p.y);
+            bmax.z = std::max(bmax.z, p.z);
+        }
+
+        // Diagonal of bounding box.
+        Vec3f diag = bmax - bmin;
+        float bboxDiagonal = diag.length();
+        if (bboxDiagonal < 0.001f) {
+            m_broadphaseConfig.spatialHashCellSize = 1.0f;
+            return;
+        }
+
+        // Estimate average spacing: diagonal / cube_root(N)
+        float nFloat = static_cast<float>(m_bodies.size());
+        float avgSpacing = bboxDiagonal / std::cbrt(nFloat);
+
+        // Cell size should be a few times the average spacing.
+        float cellSize = std::max(1.0f, avgSpacing * 2.0f);
+        // Cap at a reasonable maximum to prevent degenerate cases.
+        cellSize = std::min(cellSize, bboxDiagonal * 0.25f);
+
+        m_broadphaseConfig.spatialHashCellSize = cellSize;
+    }
+
+    // ─── Profile event accumulation (across frames) ─────────────────────────────────
+
+    /// @brief  Accumulated profile events from all fixed-step executions.
+    ///         Cleared by clearAccumulatedProfileEvents().
+    [[nodiscard]] const std::vector<TaskGraph::ProfileEvent>& accumulatedProfileEvents() const noexcept {
+        return m_accumulatedProfileEvents;
+    }
+
+    /// @brief  Clear the accumulated profile event buffer.
+    void clearAccumulatedProfileEvents() noexcept {
+        m_accumulatedProfileEvents.clear();
+    }
+
+    /// @brief  Compute per-task aggregate statistics from accumulated profile events.
+    ///
+    /// Unlike taskGraphProfileSummary() which only reflects the last frame's data,
+    /// this method aggregates across all frames since the last clearAccumulatedProfileEvents().
+    /// This gives meaningful multi-frame averages and counts.
+    [[nodiscard]] std::vector<ProfileSummary> accumulatedProfileSummary() const {
+        std::unordered_map<std::string, std::pair<double, std::pair<double, double>>> agg;
+        for (const auto& ev : m_accumulatedProfileEvents) {
+            auto it = agg.find(ev.name);
+            if (it == agg.end()) {
+                agg[ev.name] = {ev.elapsedMs, {ev.elapsedMs, ev.elapsedMs}};
+            } else {
+                it->second.first += ev.elapsedMs;
+                it->second.second.first  = std::min(it->second.second.first, ev.elapsedMs);
+                it->second.second.second = std::max(it->second.second.second, ev.elapsedMs);
+            }
+        }
+        std::vector<ProfileSummary> result;
+        result.reserve(agg.size());
+        for (const auto& [name, data] : agg) {
+            int count = 0;
+            for (const auto& ev : m_accumulatedProfileEvents) {
+                if (ev.name == name) ++count;
+            }
+            result.push_back({
+                name,
+                data.first,
+                data.second.first,
+                data.second.second,
+                data.first / static_cast<double>(count),
+                count
+            });
+        }
+        std::sort(result.begin(), result.end(),
+                  [](const ProfileSummary& a, const ProfileSummary& b) {
+                      return a.totalMs > b.totalMs;
+                  });
+        return result;
+    }
 };
+
+// ── Accumulate profile events after fixedStepTaskGraph execution ──
+// This inline helper is called from fixedStepTaskGraph() after graph.execute()
+// to merge the current frame's events into the accumulated buffer.
 
 //==================================================================================================
 // Multi‑threaded Task‑Based Stepping

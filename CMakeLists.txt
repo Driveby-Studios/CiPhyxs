@@ -97,7 +97,13 @@ if(CIPHYXS_BUILD_TESTS)
     # Add the project root so tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
     target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME ${name} COMMAND ${name})
-    set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    # Per-test timeouts for the regular test suite.
+    # test_taskgraph runs 11+ subtests with 120-frame physics simulations.
+    if(${name} STREQUAL "test_taskgraph")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 120)
+    else()
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    endif()
   endforeach()
 
   # ─── Stress-Test Suite ──────────────────────────────────────────────────────────────────────

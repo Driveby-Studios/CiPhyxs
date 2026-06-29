@@ -347,4 +347,315 @@ inline void integrateAngularPosition(
     inertiaRots[i] = rots[i];
 }
 
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Sleep management — batch 4 bodies
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Batch-check sleep state for 4 bodies using SIMD length-squared comparison.
+///
+/// For each body i = idx[b]:
+///   eKin = |v|² + |w|²
+///   if eKin < energyThreshold: sleepTimer += dt; if timer >= timeRequired → sleep
+///   else: reset timer, wake body
+///
+/// The SIMD part computes eKin for all 4 bodies at once, then per-body scalar handles
+/// the timer/flags (which require branches and uint8_t writes).
+///
+/// @param idx       4 body indices.
+/// @param linVels   Per-body linear velocities.
+/// @param angVels   Per-body angular velocities.
+/// @param sleepTimers  Per-body sleep timers (read-write).
+/// @param activeFlags  Per-body active flags (read-write, 0=sleep, 1=active).
+/// @param dt           Fixed timestep.
+/// @param energyThreshold  Kinetic energy below which bodies may sleep.
+/// @param timeRequired     Seconds below threshold before forced sleep.
+inline void updateSleepBatch4(
+    const std::size_t idx[4],
+    const Vec3f*      linVels,
+    const Vec3f*      angVels,
+    float*            sleepTimers,
+    uint8_t*          activeFlags,
+    float             dt,
+    float             energyThreshold,
+    float             timeRequired) noexcept {
+
+#if CIPHYXS_HAS_SSE2
+    // Gather linear velocities
+    __m128 lvx = _mm_setr_ps(
+        linVels[idx[0]].x, linVels[idx[1]].x,
+        linVels[idx[2]].x, linVels[idx[3]].x);
+    __m128 lvy = _mm_setr_ps(
+        linVels[idx[0]].y, linVels[idx[1]].y,
+        linVels[idx[2]].y, linVels[idx[3]].y);
+    __m128 lvz = _mm_setr_ps(
+        linVels[idx[0]].z, linVels[idx[1]].z,
+        linVels[idx[2]].z, linVels[idx[3]].z);
+
+    // eKinLin = v·v = vx² + vy² + vz²
+    __m128 eKin = _mm_add_ps(
+        _mm_add_ps(_mm_mul_ps(lvx, lvx), _mm_mul_ps(lvy, lvy)),
+        _mm_mul_ps(lvz, lvz));
+
+    // Gather angular velocities
+    __m128 awx = _mm_setr_ps(
+        angVels[idx[0]].x, angVels[idx[1]].x,
+        angVels[idx[2]].x, angVels[idx[3]].x);
+    __m128 awy = _mm_setr_ps(
+        angVels[idx[0]].y, angVels[idx[1]].y,
+        angVels[idx[2]].y, angVels[idx[3]].y);
+    __m128 awz = _mm_setr_ps(
+        angVels[idx[0]].z, angVels[idx[1]].z,
+        angVels[idx[2]].z, angVels[idx[3]].z);
+
+    // eKin += w·w
+    eKin = _mm_add_ps(eKin, _mm_add_ps(
+        _mm_add_ps(_mm_mul_ps(awx, awx), _mm_mul_ps(awy, awy)),
+        _mm_mul_ps(awz, awz)));
+
+    // Compare: eKin < threshold.  Result has sign bit set for true (all-ones mask).
+    __m128 belowMask = _mm_cmplt_ps(eKin, _mm_set1_ps(energyThreshold));
+    int bits = _mm_movemask_ps(belowMask);
+
+    // Per-body scalar timer/flags updates (uint8_t writes and branch not SIMD-friendly).
+    for (int b = 0; b < 4; ++b) {
+        std::size_t i = idx[b];
+        if (bits & (1 << b)) {
+            // Below energy threshold — accumulate sleep time.
+            sleepTimers[i] += dt;
+            if (sleepTimers[i] >= timeRequired) {
+                activeFlags[i] = 0;  // Put to sleep.
+            }
+        } else {
+            // Above threshold — keep awake and reset timer.
+            sleepTimers[i] = 0.0f;
+            activeFlags[i] = 1;  // Ensure awake.
+        }
+    }
+#else
+    // ── Scalar fallback ────────────────────────────────────────────────────────────────
+    for (int b = 0; b < 4; ++b) {
+        std::size_t i = idx[b];
+        float eKin = linVels[i].lengthSquared() + angVels[i].lengthSquared();
+        if (eKin < energyThreshold) {
+            sleepTimers[i] += dt;
+            if (sleepTimers[i] >= timeRequired) {
+                activeFlags[i] = 0;
+            }
+        } else {
+            sleepTimers[i] = 0.0f;
+            activeFlags[i] = 1;
+        }
+    }
+#endif
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// CCD speed threshold check — batch 4 bodies
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Check which bodies in a batch of 4 exceed the CCD speed threshold.
+///
+/// Returns a 4-bit mask where bit `b` is set when |linearVelocities[idx[b]]| >= speedThresh.
+/// The caller uses this mask to avoid per-body length() calls on slow bodies.
+///
+/// @param idx        4 body indices.
+/// @param linVels    Per-body linear velocities.
+/// @param speedThresh  CCD speed threshold (m/s).
+/// @return 4-bit mask: bit b = 1 if body b's speed >= threshold.
+inline int ccdSpeedThresholdBatch4(
+    const std::size_t idx[4],
+    const Vec3f*      linVels,
+    float             speedThresh) noexcept {
+
+#if CIPHYXS_HAS_SSE2
+    // Gather velocities
+    __m128 vx = _mm_setr_ps(
+        linVels[idx[0]].x, linVels[idx[1]].x,
+        linVels[idx[2]].x, linVels[idx[3]].x);
+    __m128 vy = _mm_setr_ps(
+        linVels[idx[0]].y, linVels[idx[1]].y,
+        linVels[idx[2]].y, linVels[idx[3]].y);
+    __m128 vz = _mm_setr_ps(
+        linVels[idx[0]].z, linVels[idx[1]].z,
+        linVels[idx[2]].z, linVels[idx[3]].z);
+
+    // speedSq = vx² + vy² + vz²
+    __m128 speedSq = _mm_add_ps(
+        _mm_add_ps(_mm_mul_ps(vx, vx), _mm_mul_ps(vy, vy)),
+        _mm_mul_ps(vz, vz));
+
+    // Compare: speedSq >= threshSq
+    __m128 threshSq = _mm_set1_ps(speedThresh * speedThresh);
+    __m128 aboveMask = _mm_cmpge_ps(speedSq, threshSq);
+
+    // Extract sign bits: bit b = 1 if body b is above threshold
+    return _mm_movemask_ps(aboveMask);
+#else
+    int bits = 0;
+    for (int b = 0; b < 4; ++b) {
+        std::size_t i = idx[b];
+        if (linVels[i].length() >= speedThresh) {
+            bits |= (1 << b);
+        }
+    }
+    return bits;
+#endif
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// NaN/Inf + speed cap — batch 4 bodies
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Batch-check 4 bodies for NaN/Inf velocities and clamp to kMaxSpeed.
+///
+/// Returns a mask indicating which bodies had their velocity clamped, and
+/// fixes any NaN/Inf by zeroing.  The SIMD path processes speed checks in parallel.
+///
+/// @param idx        4 body indices.
+/// @param linVels    Per-body linear velocities (read-write).
+/// @param angVels    Per-body angular velocities (read-write).
+/// @param kMaxSpeed  Maximum allowed speed (clamp magnitude, not component-wise).
+inline void clampVelocityBatch4(
+    const std::size_t idx[4],
+    Vec3f*            linVels,
+    Vec3f*            angVels,
+    float             kMaxSpeed) noexcept {
+
+#if CIPHYXS_HAS_SSE2
+    // ── Linear velocities ────────────────────────────────────────────────────────────
+    __m128 vx = _mm_setr_ps(
+        linVels[idx[0]].x, linVels[idx[1]].x,
+        linVels[idx[2]].x, linVels[idx[3]].x);
+    __m128 vy = _mm_setr_ps(
+        linVels[idx[0]].y, linVels[idx[1]].y,
+        linVels[idx[2]].y, linVels[idx[3]].y);
+    __m128 vz = _mm_setr_ps(
+        linVels[idx[0]].z, linVels[idx[1]].z,
+        linVels[idx[2]].z, linVels[idx[3]].z);
+
+    // speedSq = vx² + vy² + vz²
+    __m128 speedSq = _mm_add_ps(
+        _mm_add_ps(_mm_mul_ps(vx, vx), _mm_mul_ps(vy, vy)),
+        _mm_mul_ps(vz, vz));
+    __m128 maxSq = _mm_set1_ps(kMaxSpeed * kMaxSpeed);
+
+    // NaN check: NaN comparisons always return false, so NaN bodies will NOT be
+    // clamped by the speed mask alone.  Use cmpord (ordered) to detect NaN: if a
+    // component is NaN, cmpord returns zero.  We OR NaN-detected bodies into the mask.
+    __m128 ordMask = _mm_and_ps(
+        _mm_cmpord_ps(vx, vx),
+        _mm_and_ps(_mm_cmpord_ps(vy, vy), _mm_cmpord_ps(vz, vz)));
+    // ordMask has all-ones for finite, all-zeros for NaN.
+    // We want to clamp NaN bodies: invert to get NaN mask.
+    // But we can just blend: if speed > max OR NaN → clamp/zero.
+    __m128 needClamp = _mm_or_ps(
+        _mm_cmpgt_ps(speedSq, maxSq),
+        _mm_andnot_ps(ordMask, _mm_set1_ps(-1.0f)));  // NaN bodies -> all-ones
+
+    // Compute scale = kMaxSpeed / sqrt(speedSq) for bodies above threshold
+    // But we need to guard against NaN speeds — zero those bodies.
+    // Approach: compute sqrt(speedSq), then maxSq / speedSq for scaling.
+    // For NaN, just zero the velocity.
+    __m128 sqrtSq = _mm_sqrt_ps(speedSq);
+    __m128 scale = _mm_div_ps(_mm_set1_ps(kMaxSpeed), sqrtSq);
+    // Where needClamp is all-ones, scale the velocity; where zero, keep original.
+    // SSE2 blend: result = (needClamp & scaled) | (~needClamp & original)
+    __m128 rvx = _mm_or_ps(
+        _mm_and_ps(needClamp, _mm_mul_ps(vx, scale)),
+        _mm_andnot_ps(needClamp, vx));
+    __m128 rvy = _mm_or_ps(
+        _mm_and_ps(needClamp, _mm_mul_ps(vy, scale)),
+        _mm_andnot_ps(needClamp, vy));
+    __m128 rvz = _mm_or_ps(
+        _mm_and_ps(needClamp, _mm_mul_ps(vz, scale)),
+        _mm_andnot_ps(needClamp, vz));
+
+    // For NaN bodies (ordMask all-zeros), the scale is NaN * NaN = NaN,
+    // and our blend would produce NaN.  Fix: zero out bodies where ordMask fails.
+    // Recompute: zeroMask = ~ordMask (NaN bodies), zero their velocities.
+    rvx = _mm_and_ps(rvx, ordMask);
+    rvy = _mm_and_ps(rvy, ordMask);
+    rvz = _mm_and_ps(rvz, ordMask);
+
+    // Scatter
+    alignas(16) float vx_a[4], vy_a[4], vz_a[4];
+    _mm_store_ps(vx_a, rvx);
+    _mm_store_ps(vy_a, rvy);
+    _mm_store_ps(vz_a, rvz);
+    linVels[idx[0]] = Vec3f(vx_a[0], vy_a[0], vz_a[0]);
+    linVels[idx[1]] = Vec3f(vx_a[1], vy_a[1], vz_a[1]);
+    linVels[idx[2]] = Vec3f(vx_a[2], vy_a[2], vz_a[2]);
+    linVels[idx[3]] = Vec3f(vx_a[3], vy_a[3], vz_a[3]);
+
+    // ── Angular velocities (same logic, separate loop) ────────────────────────────
+    __m128 awx = _mm_setr_ps(
+        angVels[idx[0]].x, angVels[idx[1]].x,
+        angVels[idx[2]].x, angVels[idx[3]].x);
+    __m128 awy = _mm_setr_ps(
+        angVels[idx[0]].y, angVels[idx[1]].y,
+        angVels[idx[2]].y, angVels[idx[3]].y);
+    __m128 awz = _mm_setr_ps(
+        angVels[idx[0]].z, angVels[idx[1]].z,
+        angVels[idx[2]].z, angVels[idx[3]].z);
+
+    __m128 angSpeedSq = _mm_add_ps(
+        _mm_add_ps(_mm_mul_ps(awx, awx), _mm_mul_ps(awy, awy)),
+        _mm_mul_ps(awz, awz));
+    __m128 ordAng = _mm_and_ps(
+        _mm_cmpord_ps(awx, awx),
+        _mm_and_ps(_mm_cmpord_ps(awy, awy), _mm_cmpord_ps(awz, awz)));
+    __m128 needAngClamp = _mm_or_ps(
+        _mm_cmpgt_ps(angSpeedSq, maxSq),
+        _mm_andnot_ps(ordAng, _mm_set1_ps(-1.0f)));
+
+    __m128 angSqrt = _mm_sqrt_ps(angSpeedSq);
+    __m128 angScale = _mm_div_ps(_mm_set1_ps(kMaxSpeed), angSqrt);
+    __m128 rawx = _mm_or_ps(
+        _mm_and_ps(needAngClamp, _mm_mul_ps(awx, angScale)),
+        _mm_andnot_ps(needAngClamp, awx));
+    __m128 rawy = _mm_or_ps(
+        _mm_and_ps(needAngClamp, _mm_mul_ps(awy, angScale)),
+        _mm_andnot_ps(needAngClamp, awy));
+    __m128 rawz = _mm_or_ps(
+        _mm_and_ps(needAngClamp, _mm_mul_ps(awz, angScale)),
+        _mm_andnot_ps(needAngClamp, awz));
+
+    rawx = _mm_and_ps(rawx, ordAng);
+    rawy = _mm_and_ps(rawy, ordAng);
+    rawz = _mm_and_ps(rawz, ordAng);
+
+    alignas(16) float awx_a[4], awy_a[4], awz_a[4];
+    _mm_store_ps(awx_a, rawx);
+    _mm_store_ps(awy_a, rawy);
+    _mm_store_ps(awz_a, rawz);
+    angVels[idx[0]] = Vec3f(awx_a[0], awy_a[0], awz_a[0]);
+    angVels[idx[1]] = Vec3f(awx_a[1], awy_a[1], awz_a[1]);
+    angVels[idx[2]] = Vec3f(awx_a[2], awy_a[2], awz_a[2]);
+    angVels[idx[3]] = Vec3f(awx_a[3], awy_a[3], awz_a[3]);
+#else
+    // ── Scalar fallback ────────────────────────────────────────────────────────────────
+    for (int b = 0; b < 4; ++b) {
+        std::size_t i = idx[b];
+        Vec3f& v = linVels[i];
+        if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z)) {
+            v = Vec3f::zero();
+        } else {
+            float speedSq = v.lengthSquared();
+            if (speedSq > kMaxSpeed * kMaxSpeed) {
+                v *= kMaxSpeed / std::sqrt(speedSq);
+            }
+        }
+        Vec3f& w = angVels[i];
+        if (!std::isfinite(w.x) || !std::isfinite(w.y) || !std::isfinite(w.z)) {
+            w = Vec3f::zero();
+        } else {
+            float angSpeedSq = w.lengthSquared();
+            if (angSpeedSq > kMaxSpeed * kMaxSpeed) {
+                w *= kMaxSpeed / std::sqrt(angSpeedSq);
+            }
+        }
+    }
+#endif
+}
+
 } // namespace ciphyxs

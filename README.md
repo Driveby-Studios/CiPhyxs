@@ -1,13 +1,13 @@
 # CiPhyxs — High-Performance Physics Engine
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
-![Header-Only](https://img.shields.io/badge/header--only-✓-brightgreen)
-![CI](https://github.com/Driveby-Studios/CiPhyxs/actions/workflows/ci.yml/badge.svg) 
-![GCC](https://img.shields.io/badge/GCC-11%2B-blue)
-![Clang](https://img.shields.io/badge/Clang-14%2B-blue)
-![MSVC](https://img.shields.io/badge/MSVC-2022%2B-blue)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=plastic)](LICENSE)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg?style=plastic)
+![Header-Only](https://img.shields.io/badge/header--only-✓-brightgreen?style=plastic)
+![CI](https://github.com/Driveby-Studios/CiPhyxs/actions/workflows/ci.yml/badge.svg?style=plastic) 
+![GCC](https://img.shields.io/badge/GCC-11%2B-blue?style=plastic)
+![Clang](https://img.shields.io/badge/Clang-14%2B-blue?style=plastic)
+![MSVC](https://img.shields.io/badge/MSVC-2022%2B-blue?style=plastic)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=plastic)
 
 **CiPhyxs** is a high-performance, **header-only**, C++20 physics engine designed for **heavy, mechanical, and industrial simulations** where numerical stability and extreme mass ratios (10⁶:1+) are critical. Its architecture draws inspiration from Nvidia PhysX and Unreal Engine's Chaos physics, with a focus on determinism, data-oriented design, and a clean, framework-agnostic API.
 
