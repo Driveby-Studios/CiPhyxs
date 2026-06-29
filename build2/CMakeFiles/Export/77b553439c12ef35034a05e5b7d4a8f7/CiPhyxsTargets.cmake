@@ -60,6 +60,7 @@ add_library(ciphyxs INTERFACE IMPORTED)
 
 set_target_properties(ciphyxs PROPERTIES
   INTERFACE_COMPILE_FEATURES "cxx_std_20"
+  INTERFACE_COMPILE_OPTIONS "-msse2;-msse3;-msse4.1"
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
 )
 

@@ -9,6 +9,7 @@
 ///        `-DkNumFrames=500` or edit the line below.  Release mode runs 5000 easily.
 //==================================================================================================
 #include "StressTestBase.hpp"
+#include "../include/ciphyxs/core/AggressiveMode.hpp"
 
 int main() {
     using namespace ciphyxs;
@@ -21,24 +22,33 @@ int main() {
     Stopwatch timer;
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    // Helper: configure a world with consistent settings
-    // ════════════════════════════════════════════════════════════════════════════════════════════
-    auto configureWorld = [](PhysicsWorld& w) {
-        w.enableDbvt();
-        PhysicsWorldConfig cfg;
-        cfg.gravity                = Vec3f(0.0f, -9.81f, 0.0f);
-        cfg.fixedTimestep          = kFixedDt;
-        cfg.linearDamping          = 0.05f;
-        cfg.angularDamping         = 0.05f;
-        cfg.sleepEnergyThreshold   = 0.001f;
-        cfg.sleepTimeRequired      = 0.5f;
-        cfg.enableParallelSolver   = true;
-        cfg.numThreads             = 4;
-        cfg.enableTaskGraphPipeline = true;
-        cfg.ccdSpeedThreshold      = 20.0f;
-        cfg.ccdMaxSubSteps         = 4;
-        w.setConfig(cfg);
-    };
+        // Helper: configure a world with consistent settings
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+        auto configureWorld = [](PhysicsWorld& w) {
+            PhysicsWorldConfig cfg = w.config();
+            cfg.gravity                = Vec3f(0.0f, -9.81f, 0.0f);
+            cfg.fixedTimestep          = kFixedDt;
+            cfg.linearDamping          = 0.05f;
+            cfg.angularDamping         = 0.05f;
+            cfg.sleepEnergyThreshold   = 0.001f;
+            cfg.sleepTimeRequired      = 0.5f;
+            cfg.enableParallelSolver   = true;
+            cfg.numThreads             = 0; // auto = hardware_concurrency
+            cfg.enableTaskGraphPipeline = true;
+            cfg.ccdSpeedThreshold      = 20.0f;
+            cfg.ccdMaxSubSteps         = 4;
+            w.setConfig(cfg);
+
+            // Scattered 100-body layout is more efficient with SpatialHash than SimdBruteForce.
+            w.setBroadphaseType(BroadphaseType::SpatialHash);
+
+            // Keep solver at 10 iterations for determinism.
+            auto& sc = w.solverConfig();
+            sc.numIterations = 10;
+            sc.baumgarte     = 0.10f;
+            sc.enableWarmStart = true;
+            sc.warmStartFactor = 0.6f;
+        };
 
     auto populateWorld = [](PhysicsWorld& w, FixedRng& rng) {
         // Shapes.
@@ -97,9 +107,9 @@ int main() {
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    // Setup world A
+    // Setup world A (direct LowEnd construction — no move-assign needed)
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    PhysicsWorld worldA;
+    PhysicsWorld worldA(PhysicsWorld::Preset::LowEnd);
     configureWorld(worldA);
 
     {
@@ -112,7 +122,7 @@ int main() {
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Setup world B (identical — same config, same RNG seed)
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    PhysicsWorld worldB;
+    PhysicsWorld worldB(PhysicsWorld::Preset::LowEnd);
     configureWorld(worldB);
 
     {

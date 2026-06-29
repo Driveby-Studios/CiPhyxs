@@ -23,6 +23,7 @@ E:/CiPhyxs/build2/CMakeFiles/ChaosDensityTest.dir
 E:/CiPhyxs/build2/CMakeFiles/DeterminismTest.dir
 E:/CiPhyxs/build2/CMakeFiles/MultibodyCrashTest.dir
 E:/CiPhyxs/build2/CMakeFiles/ExtremeCcdTest.dir
+E:/CiPhyxs/build2/CMakeFiles/LowEndBenchmark.dir
 E:/CiPhyxs/build2/CMakeFiles/check.dir
 E:/CiPhyxs/build2/CMakeFiles/stress_check.dir
 E:/CiPhyxs/build2/CMakeFiles/test.dir

@@ -16,7 +16,9 @@ int main() {
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Test state
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    PhysicsWorld world;
+    // Use the PhysicsWorld::Preset::LowEnd constructor which applies the same
+    // AggressiveMode settings automatically.
+    PhysicsWorld world(PhysicsWorld::Preset::LowEnd);
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
@@ -34,29 +36,24 @@ int main() {
     // Setup
     // ════════════════════════════════════════════════════════════════════════════════════════════
     {
-        world.enableDbvt();
+        // PhysicsWorld(PhysicsWorld::Preset::LowEnd) already applied the low-end preset.
+        // Override with test-specific tuning: more iterations for stack stability,
+        // higher friction to prevent sliding, and disable CCD (no fast bodies in stack).
         {
-            PhysicsWorldConfig cfg;
-            cfg.gravity              = Vec3f(0.0f, -9.81f, 0.0f);
-            cfg.fixedTimestep        = kFixedDt;
+            PhysicsWorldConfig cfg = world.config();
             cfg.linearDamping        = 0.1f;
             cfg.angularDamping       = 0.1f;
-            cfg.sleepEnergyThreshold = 0.005f;
-            cfg.sleepTimeRequired    = 1.0f;
-            cfg.enableParallelSolver = true;
-            cfg.numThreads = 4;
-            cfg.enableTaskGraphPipeline = true;
             cfg.ccdSpeedThreshold    = 0.0f;
             cfg.ccdMaxSubSteps       = 0;
             world.setConfig(cfg);
         }
         {
             auto& sc = world.solverConfig();
-            sc.numIterations = 20;
-            sc.baumgarte = 0.25f;
+            sc.numIterations = 10;
+            sc.baumgarte = 0.15f;
             sc.maxPenetrationCorrection = 0.15f;
             sc.enableWarmStart = true;
-            sc.warmStartFactor = 0.85f;
+            sc.warmStartFactor = 0.8f;
         }
 
         // Create shapes.

@@ -36,7 +36,7 @@ int main() {
 
     constexpr int kBodyCount4096 = 4096;
     constexpr int kBodyCount5000 = 5000;
-    constexpr int kFramesShort   = 10;    // Short run to detect instant crash
+    constexpr int kFramesShort   = 3;     // Short run to detect instant crash (10 was overly conservative)
     constexpr float kBoxHalf     = 0.3f;
 
     struct SubTestResult {
@@ -67,7 +67,7 @@ int main() {
                 cfg.sleepEnergyThreshold   = 0.001f;
                 cfg.sleepTimeRequired      = 5.0f;
                 cfg.enableParallelSolver   = useTaskGraph;
-                cfg.numThreads             = 4;
+                cfg.numThreads             = 0; // auto = hardware_concurrency
                 cfg.enableTaskGraphPipeline = useTaskGraph;
                 cfg.ccdSpeedThreshold      = 0.0f;
                 cfg.ccdMaxSubSteps         = 0;

@@ -18,7 +18,7 @@
 CIPHYXS_BUILD_TESTS:BOOL=ON
 
 //Add compiler flags for SIMD (SSE2/NEON)
-CIPHYXS_ENABLE_SIMD:BOOL=OFF
+CIPHYXS_ENABLE_SIMD:BOOL=ON
 
 //Path to a program.
 CMAKE_ADDR2LINE:FILEPATH=C:/msys64/mingw64/bin/addr2line.exe

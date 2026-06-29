@@ -41,21 +41,21 @@ target_compile_features(ciphyxs INTERFACE cxx_std_20)
 
 # ─── SIMD optimisations ─────────────────────────────────────────────────────────────────────────
 if(CIPHYXS_ENABLE_SIMD)
-    if(MSVC)
-        target_compile_options(ciphyxs INTERFACE /arch:SSE2)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
-        target_compile_options(ciphyxs INTERFACE -msse2 -msse3 -msse4.1)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
-        target_compile_options(ciphyxs INTERFACE -march=armv8-a+simd)
-    endif()
+  if(MSVC)
+    target_compile_options(ciphyxs INTERFACE /arch:SSE2)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
+    target_compile_options(ciphyxs INTERFACE -msse2 -msse3 -msse4.1)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+    target_compile_options(ciphyxs INTERFACE -march=armv8-a+simd)
+  endif()
 endif()
 
 # ─── Tests ───────────────────────────────────────────────────────────────────────────────────────
 if(CIPHYXS_BUILD_TESTS)
-    # Prevent CMake from searching for a C compiler (all source is C++ only).
-    enable_testing()
+  # Prevent CMake from searching for a C compiler (all source is C++ only).
+  enable_testing()
 
-    set(TEST_SOURCES
+  set(TEST_SOURCES
         Tests/test_alignment.cpp
         Tests/test_collision.cpp
         Tests/test_final.cpp
@@ -76,31 +76,32 @@ if(CIPHYXS_BUILD_TESTS)
         Tests/test_fracture.cpp
         )
 
-    foreach(src ${TEST_SOURCES})
-        get_filename_component(name ${src} NAME_WE)
-        add_executable(${name} ${src})
+  foreach(src ${TEST_SOURCES})
+    get_filename_component(name ${src} NAME_WE)
+    add_executable(${name} ${src})
 
-        # MSVC uses /W4, /O2, /Od /Zi; GCC/Clang use -Wall -Wextra -Wpedantic, -O2, -g -O0.
-        if(MSVC)
-            target_compile_options(${name} PRIVATE /W4
+    # MSVC uses /W4, /O2, /Od /Zi; GCC/Clang use -Wall -Wextra -Wpedantic, -O2, -g -O0.
+    if(MSVC)
+      target_compile_options(${name} PRIVATE /W4
                 $<$<CONFIG:Release>:/O2 /DNDEBUG>
                 $<$<CONFIG:Debug>:/Od /Zi>
             )
-        else()
-            target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic
-                $<$<CONFIG:Release>:-O2>
-                $<$<CONFIG:Debug>:-g -O0>
-            )
-        endif()
+    else()
+      target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic
+          $<$<CONFIG:Release>:-O3>
+          $<$<CONFIG:Debug>:-g -O0>
+      )
+    endif()
 
-        target_link_libraries(${name} PRIVATE ciphyxs)
-        # Add the project root so tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
-        target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-        add_test(NAME ${name} COMMAND ${name})
-    endforeach()
+    target_link_libraries(${name} PRIVATE ciphyxs)
+    # Add the project root so tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+  endforeach()
 
-    # ─── Stress-Test Suite ──────────────────────────────────────────────────────────────────────
-    set(STRESS_TEST_SOURCES
+  # ─── Stress-Test Suite ──────────────────────────────────────────────────────────────────────
+  set(STRESS_TEST_SOURCES
         Stress_Tests/DeepStackTest.cpp
         Stress_Tests/TunnelingTest.cpp
         Stress_Tests/CCDConvexMeshTest.cpp
@@ -108,37 +109,55 @@ if(CIPHYXS_BUILD_TESTS)
         Stress_Tests/DeterminismTest.cpp
         Stress_Tests/MultibodyCrashTest.cpp
         Stress_Tests/ExtremeCcdTest.cpp
+        Stress_Tests/LowEndBenchmark.cpp
         )
 
-    foreach(src ${STRESS_TEST_SOURCES})
-        get_filename_component(name ${src} NAME_WE)
-        add_executable(${name} ${src})
+  foreach(src ${STRESS_TEST_SOURCES})
+    get_filename_component(name ${src} NAME_WE)
+    add_executable(${name} ${src})
 
-        if(MSVC)
-            target_compile_options(${name} PRIVATE /W4
+    if(MSVC)
+      target_compile_options(${name} PRIVATE /W4
                 $<$<CONFIG:Release>:/O2 /DNDEBUG>
                 $<$<CONFIG:Debug>:/Od /Zi>
             )
-        else()
-            target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic
-                $<$<CONFIG:Release>:-O2>
-                $<$<CONFIG:Debug>:-g -O0>
-            )
-        endif()
+    else()
+      target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic
+          $<$<CONFIG:Release>:-O3>
+          $<$<CONFIG:Debug>:-g -O0>
+      )
+    endif()
 
-        target_link_libraries(${name} PRIVATE ciphyxs)
-        # Add the project root so stress tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
-        target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-        add_test(NAME ${name} COMMAND ${name})
-    endforeach()
+    target_link_libraries(${name} PRIVATE ciphyxs)
+    # Add the project root so stress tests can use "include/ciphyxs/CiPhyxs.hpp" relative includes.
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME ${name} COMMAND ${name})
 
-    add_custom_target(check
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    # Per-test timeouts — with spatial hash cell size fix + island threshold.
+    # Slowest: ChaosDensityTest (~60-90s with previous hash issue),
+    # DeterminismTest (~10-20s), LowEndBenchmark (~20-50s).
+    if(${name} STREQUAL "ChaosDensityTest")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 360)
+    elseif(${name} STREQUAL "MultibodyCrashTest")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 30)
+    elseif(${name} STREQUAL "LowEndBenchmark")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 180)
+    elseif(${name} STREQUAL "DeterminismTest")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    elseif(${name} STREQUAL "DeepStackTest")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 120)
+    else()
+      set_tests_properties(${name} PROPERTIES TIMEOUT 30)
+    endif()
+  endforeach()
+
+  add_custom_target(check
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 60
         DEPENDS ${TEST_SOURCES})
 
-    # Custom target to run stress tests.
-    add_custom_target(stress_check
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+  # Custom target to run stress tests.
+  add_custom_target(stress_check
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 300
         DEPENDS ${STRESS_TEST_SOURCES})
 endif()
 
@@ -155,17 +174,17 @@ install(EXPORT CiPhyxsTargets
 # ─── Doxygen (opt-in) ───────────────────────────────────────────────────────────────────────────
 find_package(Doxygen QUIET)
 if(Doxygen_FOUND)
-    # Only build docs when explicitly requested:  cmake --build . --target doc
-    set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-    set(DOXYGEN_GENERATE_TREEVIEW YES)
+  # Only build docs when explicitly requested:  cmake --build . --target doc
+  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+  set(DOXYGEN_GENERATE_TREEVIEW YES)
 
-    configure_file(
+  configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in"
         "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
         @ONLY
     )
 
-    doxygen_add_docs(doc
+  doxygen_add_docs(doc
         "${CMAKE_CURRENT_SOURCE_DIR}/include/ciphyxs"
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         COMMENT "Generating CiPhyxs API documentation"

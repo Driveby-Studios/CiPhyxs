@@ -7,6 +7,7 @@
 
 #include "RigidBody.hpp"
 #include "SoftBody.hpp"
+#include "../math/SimdIntegration.hpp"
 #include "ConstraintSolver.hpp"
 #include "IslandSolver.hpp"
 #include "Joint.hpp"
@@ -32,6 +33,18 @@
 #include <limits>
 #include <memory>
 #include <vector>
+
+// ─── Validation guard ─────────────────────────────────────────────────────────────────────────
+// Define CIPHYXS_ENABLE_VALIDATION to enable NaN/Inf guards in hot loops.
+// When defined, each integrated body is checked for NaN/Inf positions and velocities.
+// When undefined (default for optimal performance on constrained hardware),
+// these checks are skipped entirely, eliminating branches in the hot loop and
+// enabling better compiler auto-vectorization.
+//
+// Define this during development/debugging; undefine for release.
+#ifndef CIPHYXS_ENABLE_VALIDATION
+#define CIPHYXS_ENABLE_VALIDATION 0
+#endif
 
 namespace ciphyxs {
 
@@ -195,11 +208,57 @@ struct PhysicsWorldConfig {
 /// @note  This class is **not** thread‑safe.  Advance the simulation from a single thread.
 class PhysicsWorld {
 public:
+    // ─── Preset flags ─────────────────────────────────────────────────────────────────────────
+
+    /// @brief  Quick-preset for common hardware targets.
+    ///
+    /// - `Default`:  Balanced accuracy/performance. 10 solver iterations, Dbvt broadphase,
+    ///               CCD at 10 m/s.  Suitable for desktop/server-class hardware.
+    /// - `LowEnd`:    Optimised for constrained hardware (2-core 1.6 GHz, 512 MB RAM).
+    ///               Uses SimdBruteForce broadphase, 6 solver iterations, immediate freeze,
+    ///               and reduced/eliminated CCD for up to 3× simulation throughput.
+    enum class Preset : std::uint8_t {
+        Default,
+        LowEnd
+    };
+
     // ─── Lifecycle ──────────────────────────────────────────────────────────────────────────────
     PhysicsWorld() = default;
 
     /// @brief  Construct with explicit configuration.
     explicit PhysicsWorld(const PhysicsWorldConfig& config) : m_config(config) {}
+
+    /// @brief  Construct with a quick-preset.
+    ///
+    /// Applies the preset immediately.  Individual settings can still be overridden
+    /// via `setConfig()` / `solverConfig()` after construction.
+    explicit PhysicsWorld(Preset preset) noexcept {
+        if (preset == Preset::LowEnd) {
+            // ── Low-end preset (mirrors aggressive::applyLowEndPreset) ────────────────────
+            m_config.linearDamping          = 0.3f;
+            m_config.angularDamping         = 0.3f;
+            m_config.sleepEnergyThreshold   = 0.01f;
+            m_config.sleepTimeRequired      = 0.1f;
+            m_config.enableParallelSolver   = true;
+            m_config.numThreads             = 0;       // auto
+            m_config.enableTaskGraphPipeline = true;
+            m_config.ccdSpeedThreshold      = 20.0f;
+            m_config.ccdMaxSubSteps         = 2;
+            m_config.fixedTimestep          = 1.0f / 60.0f;
+
+            m_solverConfig.numIterations           = 6;
+            m_solverConfig.baumgarte               = 0.10f;
+            m_solverConfig.maxPenetrationCorrection = 0.10f;
+            m_solverConfig.enableWarmStart         = true;
+            m_solverConfig.warmStartFactor         = 0.6f;
+            m_solverConfig.restitutionThreshold    = 2.0f;
+
+            m_broadphaseConfig.type = BroadphaseType::SimdBruteForce;
+
+            m_useParallelSolver    = true;
+            m_useTaskGraphPipeline = true;
+        }
+    }
 
     // ─── Configuration ──────────────────────────────────────────────────────────────────────────
 
@@ -717,6 +776,20 @@ public:
     /// @brief  Direct read/write access to the SoA storage.
     [[nodiscard]]       RigidBodyStorage& bodies()       noexcept { return m_bodies; }
     [[nodiscard]] const RigidBodyStorage& bodies() const noexcept { return m_bodies; }
+
+    /// @brief  Pre-allocate storage for `count` bodies to avoid reallocations during simulation.
+    ///
+    /// Call this BEFORE creating bodies to reserve all internal SoA arrays to the required
+    /// capacity.  After this call, body creation via `createBody()` will not trigger any
+    /// memory allocations until the count exceeds the reserved capacity.
+    ///
+    /// For constrained hardware (512 MB RAM, 2-core), use with the `LowEnd` preset:
+    /// @code
+    ///   PhysicsWorld world(PhysicsWorld::Preset::LowEnd);
+    ///   world.setMaxBodies(5000);
+    ///   // ... create bodies ...
+    /// @endcode
+    void setMaxBodies(std::size_t count) noexcept { m_bodies.reserve(count); }
 
     // ────────────────────────────────────────────────────────────────────────────────────────────────
     // Soft body API
@@ -1264,6 +1337,9 @@ private:
             return;
         }
 
+        // Rebuild active-dynamic index array for this frame's hot loops.
+        rebuildActiveDynamicIndices();
+
         // Phase 0 – soft body simulation (PBD step before rigid bodies)
         if (!m_softBodies.empty()) {
             stepSoftBodies(dt);
@@ -1322,6 +1398,9 @@ private:
         // Phase 8 – sleep management
         updateSleep(dt);
 
+        // Rebuild active-dynamic index array for next frame's hot loops.
+        rebuildActiveDynamicIndices();
+
         ++m_stepCount;
     }
 
@@ -1360,6 +1439,9 @@ private:
     void fixedStepTaskGraph(float dt) {
         TaskGraph& graph = m_taskGraph;
         graph.clear();
+
+        // Rebuild active-dynamic index array for this frame's hot loops.
+        rebuildActiveDynamicIndices();
 
         // ── Stage 0 – Soft body simulation (parallel to all other stages via early launch) ─
         if (!m_softBodies.empty()) {
@@ -1412,9 +1494,19 @@ private:
         //     Islands with no broadphase pairs skip narrowphase/reduce/solve entirely.
         //     If there's only one island (or parallel solver is disabled), we fall back
         //     to a single global task that does everything.
+        // ── Island-count threshold ──────────────────────────────────────────────────────
+        // When there are too many tiny islands, the per-island task-creation overhead
+        // (CCD + Narrowphase + Reduce + Solve tasks per island × N islands) dominates.
+        // Falling back to the single global pipeline avoids this overhead entirely.
+        // 200 islands × 4 tasks = 800 task nodes per frame — the DAG building and
+        // dispatch cost is already significant at this point. For ChaosDensityTest's
+        // 5000 Voronoi fragments, post-explosion we can see 2000+ islands.
+        static constexpr std::size_t kMaxIslandsForPerIsland = 200;
+
         std::vector<TaskId> islandFinalIds;
         bool usePerIsland = (m_useParallelSolver && m_islandSolver.hasIslands()
-                             && m_islandSolver.islands().size() > 1);
+                             && m_islandSolver.islands().size() > 1
+                             && m_islandSolver.islands().size() <= kMaxIslandsForPerIsland);
 
         if (usePerIsland) {
             std::size_t numIslands = m_islandSolver.islands().size();
@@ -1498,15 +1590,113 @@ private:
         }
 
         if (!usePerIsland || islandFinalIds.empty()) {
-            // Fallback: single global task that does CCD + narrowphase + reduce + solve.
-            auto stageGlobal = graph.add("GlobalCollideAndSolve", {&stageFormIslands, 1},
-                [this, dt]() {
-                    runCCD(dt);
-                    runNarrowphase(m_pairs, m_manifolds);
-                    reduceContactNormals(m_manifolds, m_contactReductionConfig);
-                    m_solver.solve(dt, m_manifolds, m_bodies, m_solverConfig);
-                });
-            islandFinalIds.push_back(stageGlobal);
+            // ── Parallel fallback ──────────────────────────────────────────────────
+            // Split CCD bodies and broadphase pairs across the thread pool workers
+            // for better CPU utilization even with a single large island.
+            std::size_t numWorkers = ensureThreadPool().threadCount();
+            bool canParallel = (numWorkers > 1
+                                && m_activeDynamicIndices.size() >= 64
+                                && !m_pairs.empty());
+
+            if (!canParallel) {
+                // Sequential path: everything in one task (small scenes).
+                auto stageGlobal = graph.add("GlobalCollideAndSolve", {&stageFormIslands, 1},
+                    [this, dt]() {
+                        runCCD(dt);
+                        runNarrowphase(m_pairs, m_manifolds);
+                        reduceContactNormals(m_manifolds, m_contactReductionConfig);
+                        m_solver.solve(dt, m_manifolds, m_bodies, m_solverConfig);
+                    });
+                islandFinalIds.push_back(stageGlobal);
+            } else {
+                // ── Parallel CCD: split active-dynamic bodies into chunks ─────────
+                std::size_t numCCDChunks = std::min(numWorkers,
+                    (m_activeDynamicIndices.size() + 31) / 32);
+                std::size_t bodiesPerChunk = (m_activeDynamicIndices.size()
+                                              + numCCDChunks - 1) / numCCDChunks;
+
+                std::vector<TaskId> ccdTaskIds;
+                ccdTaskIds.reserve(numCCDChunks);
+                for (std::size_t ci = 0; ci < numCCDChunks; ++ci) {
+                    std::size_t start = ci * bodiesPerChunk;
+                    std::size_t end = std::min(start + bodiesPerChunk,
+                                               m_activeDynamicIndices.size());
+                    if (start >= end) break;
+
+                    std::vector<RigidBodyHandle> chunkBodies;
+                    chunkBodies.reserve(end - start);
+                    for (std::size_t ai = start; ai < end; ++ai)
+                        chunkBodies.push_back(m_activeDynamicIndices[ai]);
+
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "CCD_C%zu", ci);
+                    auto tid = graph.add(buf, {&stageFormIslands, 1},
+                        [this, dt, bodies = std::move(chunkBodies)]() {
+                            runCCDForBodies(bodies, dt);
+                        });
+                    ccdTaskIds.push_back(tid);
+                }
+
+                // ── Parallel narrowphase: split broadphase pairs into chunks ────
+                std::size_t numNarrowChunks = std::min(numWorkers,
+                    (m_pairs.size() + 63) / 64);
+                std::size_t pairsPerChunk = (m_pairs.size()
+                                             + numNarrowChunks - 1) / numNarrowChunks;
+
+                // Resize thread-local manifold buffers.
+                m_islandManifolds.resize(numNarrowChunks);
+                for (auto& buf : m_islandManifolds) buf.clear();
+
+                std::vector<TaskId> narrowTaskIds;
+                narrowTaskIds.reserve(numNarrowChunks);
+                for (std::size_t ci = 0; ci < numNarrowChunks; ++ci) {
+                    std::size_t start = ci * pairsPerChunk;
+                    std::size_t end = std::min(start + pairsPerChunk, m_pairs.size());
+                    if (start >= end) break;
+
+                    // Build a span of pairs for this chunk.
+                    BroadphasePair* chunkStart = m_pairs.data() + start;
+                    std::size_t chunkCount = end - start;
+                    auto pairSpan = std::span<const BroadphasePair>(chunkStart, chunkCount);
+
+                    // We need to copy the span into a vector for the lambda capture.
+                    std::vector<BroadphasePair> chunkPairs(pairSpan.begin(), pairSpan.end());
+
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "Narrow_C%zu", ci);
+                    auto tid = graph.add(buf, {&stageFormIslands, 1},
+                        [this, ci, pairs = std::move(chunkPairs)]() {
+                            runNarrowphase(pairs, m_islandManifolds[ci]);
+                        });
+                    narrowTaskIds.push_back(tid);
+                }
+
+                // ── Barrier + merge + reduce + solve ────────────────────────────
+                // Combine all CCD and narrowphase task IDs for the barrier.
+                std::vector<TaskId> allWorkIds;
+                allWorkIds.reserve(ccdTaskIds.size() + narrowTaskIds.size());
+                allWorkIds.insert(allWorkIds.end(), ccdTaskIds.begin(), ccdTaskIds.end());
+                allWorkIds.insert(allWorkIds.end(), narrowTaskIds.begin(), narrowTaskIds.end());
+
+                auto workBarrier = graph.addBarrier("CollideBarrier", allWorkIds);
+
+                // Merge thread-local manifolds + reduce + solve.
+                auto stagePostCollide = graph.add("PostCollide", {&workBarrier, 1},
+                    [this, dt]() {
+                        // Merge per-chunk manifolds into m_manifolds.
+                        m_manifolds.clear();
+                        for (auto& buf : m_islandManifolds) {
+                            for (auto& mf : buf) {
+                                m_manifolds.push_back(std::move(mf));
+                            }
+                            buf.clear();
+                        }
+                        reduceContactNormals(m_manifolds, m_contactReductionConfig);
+                        m_solver.solve(dt, m_manifolds, m_bodies, m_solverConfig);
+                    });
+
+                islandFinalIds.push_back(stagePostCollide);
+            }
         }
 
         // ── Stage 7 – Barrier: wait for all island pipelines to complete ──────────────────
@@ -1567,32 +1757,55 @@ private:
         m_bodies.clearForces();
         auto h = m_bodies.hot();  // solver-hot view
 
-        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
-            if (!m_bodies.activeFlags[i]) continue;
-            if (m_bodies.motionTypes[i] == MotionType::Dynamic) {
-                float mInv = h.inverseMasses[i];
-                if (mInv > 0.0f) {
-                    // Gravity.
-                    h.forces[i] += m_config.gravity / mInv;
+        // Aligned pointers for SIMD-friendly access.
+        float*      invMasses    = std::assume_aligned<16>(h.inverseMasses.data());
+        Vec3f*      forces       = std::assume_aligned<16>(h.forces.data());
+        Vec3f*      linVels      = std::assume_aligned<16>(h.linearVelocities.data());
+        Vec3f*      angVels      = std::assume_aligned<16>(h.angularVelocities.data());
+        Vec3f*      torques      = std::assume_aligned<16>(h.torques.data());
+        float*      linearDamping = std::assume_aligned<16>(m_bodies.linearDamping.data());
+        float*      angularDamping = std::assume_aligned<16>(m_bodies.angularDamping.data());
 
-                    // Linear Rayleigh damping: F_damp = -c · v.
-                    // Per-body damping overrides config when set (> 0).
-                    float dampLin = (m_bodies.linearDamping[i] > 0.0f)
-                        ? m_bodies.linearDamping[i]
-                        : m_config.linearDamping;
-                    if (dampLin > 0.0f) {
-                        h.forces[i] += -dampLin * h.linearVelocities[i];
-                    }
-                }
+        // Active-dynamic index array: all indices in m_activeDynamicIndices are
+        // guaranteed to be active && dynamic. Rebuilt at the start of each frame.
+        //
+        // SIMD batch-4 loop with scalar remainder. All dynamic bodies have invM > 0
+        // so gravity is always applied. Damping terms are always computed — when the
+        // coefficient is zero, the term is zero and has no effect.
+        const Vec3f g = m_config.gravity;
+        const float globalLinDamp = m_config.linearDamping;
+        const float globalAngDamp = m_config.angularDamping;
 
-                // Angular Rayleigh damping: τ_damp = -c · ω.
-                float dampAng = (m_bodies.angularDamping[i] > 0.0f)
-                    ? m_bodies.angularDamping[i]
-                    : m_config.angularDamping;
-                if (dampAng > 0.0f) {
-                    h.torques[i] += -dampAng * h.angularVelocities[i];
-                }
-            }
+        std::size_t ai = 0;
+        std::size_t count = m_activeDynamicIndices.size();
+
+        // SIMD batch: process 4 bodies at once using SSE2.
+        for (; ai + 4 <= count; ai += 4) {
+            std::size_t idx[4] = {
+                m_activeDynamicIndices[ai + 0],
+                m_activeDynamicIndices[ai + 1],
+                m_activeDynamicIndices[ai + 2],
+                m_activeDynamicIndices[ai + 3]
+            };
+            integrateForcesBatch4(idx, invMasses, forces, linVels, torques, angVels,
+                                 linearDamping, angularDamping, g,
+                                 globalLinDamp, globalAngDamp);
+        }
+
+        // Scalar remainder for the last 0-3 bodies.
+        for (; ai < count; ++ai) {
+            std::size_t i = m_activeDynamicIndices[ai];
+
+            // Gravity: all dynamic bodies have invM > 0.
+            forces[i] += g / invMasses[i];
+
+            // Linear damping: branchless — term is zero when dampLin == 0.
+            float dampLin = (linearDamping[i] > 0.0f) ? linearDamping[i] : globalLinDamp;
+            forces[i] += -dampLin * linVels[i];
+
+            // Angular damping: branchless.
+            float dampAng = (angularDamping[i] > 0.0f) ? angularDamping[i] : globalAngDamp;
+            torques[i] += -dampAng * angVels[i];
         }
 
         for (auto* hook : m_hooks) hook->onApplyForces(dt, m_bodies);
@@ -1609,46 +1822,78 @@ private:
     void integrateVelocities(float dt) {
         auto h = m_bodies.hot();  // solver-hot view
 
-        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
-            if (!m_bodies.activeFlags[i]) continue;
-            if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
+        // Aligned pointers for SIMD-friendly access.
+        float*      invMasses    = std::assume_aligned<16>(h.inverseMasses.data());
+        Vec3f*      forces       = std::assume_aligned<16>(h.forces.data());
+        Vec3f*      linVels      = std::assume_aligned<16>(h.linearVelocities.data());
+        Vec3f*      angVels      = std::assume_aligned<16>(h.angularVelocities.data());
+        Vec3f*      invInertia   = std::assume_aligned<16>(h.inverseInertiaDiag.data());
+        Quaternionf* rots        = std::assume_aligned<16>(h.rotations.data());
+        Vec3f*      torques      = std::assume_aligned<16>(h.torques.data());
 
-            float invM = h.inverseMasses[i];
-            if (invM > 0.0f) {
-                Vec3f accel = h.forces[i] * invM;
-                h.linearVelocities[i] += accel * dt;
-            }
+        // Active-dynamic index array: all indices are guaranteed active && dynamic.
+        // All bodies here have invM > 0, so the linear acceleration is always applied.
+        // SIMD batch-4 for linear velocity, per-body scalar for angular.
+        std::size_t ai = 0;
+        std::size_t count = m_activeDynamicIndices.size();
 
-            // Angular: α = I_w⁻¹ · τ = R · (I_local⁻¹ · (Rᵀ · τ))
-            Quaternionf q = h.rotations[i];
-            Vec3f tauLocal  = q.rotateInverse(h.torques[i]);
-            Vec3f alphaLocal = Vec3f(
-                tauLocal.x * h.inverseInertiaDiag[i].x,
-                tauLocal.y * h.inverseInertiaDiag[i].y,
-                tauLocal.z * h.inverseInertiaDiag[i].z
-            );
-            h.angularVelocities[i] += q.rotate(alphaLocal) * dt;
+        // SIMD batch: process 4 bodies' linear velocity at once.
+        for (; ai + 4 <= count; ai += 4) {
+            std::size_t idx[4] = {
+                m_activeDynamicIndices[ai + 0],
+                m_activeDynamicIndices[ai + 1],
+                m_activeDynamicIndices[ai + 2],
+                m_activeDynamicIndices[ai + 3]
+            };
+            integrateLinearVelocitiesBatch4(idx, invMasses, forces, linVels, dt);
 
-            // ── NaN/Inf guard on velocities ───────────────────────────────────────────
-            if (!std::isfinite(h.linearVelocities[i].x) ||
-                !std::isfinite(h.linearVelocities[i].y) ||
-                !std::isfinite(h.linearVelocities[i].z)) {
-                std::fprintf(stderr,
-                    "[CiPhyxs] NaN/Inf linear velocity in body %zu at step %llu — "
-                    "clamping to zero\n",
-                    i, static_cast<unsigned long long>(m_stepCount));
-                h.linearVelocities[i] = Vec3f::zero();
-            }
-            if (!std::isfinite(h.angularVelocities[i].x) ||
-                !std::isfinite(h.angularVelocities[i].y) ||
-                !std::isfinite(h.angularVelocities[i].z)) {
-                std::fprintf(stderr,
-                    "[CiPhyxs] NaN/Inf angular velocity in body %zu at step %llu — "
-                    "clamping to zero\n",
-                    i, static_cast<unsigned long long>(m_stepCount));
-                h.angularVelocities[i] = Vec3f::zero();
-            }
+            // Angular per-body (quaternion ops not easily SIMD-vectorized).
+            integrateAngularVelocity(idx[0], torques, invInertia, rots, angVels, dt);
+            integrateAngularVelocity(idx[1], torques, invInertia, rots, angVels, dt);
+            integrateAngularVelocity(idx[2], torques, invInertia, rots, angVels, dt);
+            integrateAngularVelocity(idx[3], torques, invInertia, rots, angVels, dt);
         }
+
+        // Scalar remainder for the last 0-3 bodies.
+        for (; ai < count; ++ai) {
+            std::size_t i = m_activeDynamicIndices[ai];
+
+            // Linear: accel = force * invMass (unconditional — all dynamic bodies have invM > 0).
+            Vec3f accel = forces[i] * invMasses[i];
+            linVels[i] += accel * dt;
+
+            // Angular: a = I_w^-1 * t = R * (I_local^-1 * (R^T * t))
+            integrateAngularVelocity(i, torques, invInertia, rots, angVels, dt);
+        }
+
+                // --- NaN/Inf guard + speed cap (always-on — prevents NaN propagation
+                //     that causes extreme FPU slowdown and solver instability) ---
+                constexpr float kMaxSpeed = 500.0f;
+                {
+                    auto* hLinVels = h.linearVelocities.data();
+                    auto* hAngVels = h.angularVelocities.data();
+                    for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+                        std::size_t i = m_activeDynamicIndices[ai];
+                        Vec3f& v = hLinVels[i];
+                        if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z)) {
+                            v = Vec3f::zero();
+                        } else {
+                            float speedSq = v.lengthSquared();
+                            if (speedSq > kMaxSpeed * kMaxSpeed) {
+                                v *= kMaxSpeed / std::sqrt(speedSq);
+                            }
+                        }
+                        Vec3f& w = hAngVels[i];
+                        if (!std::isfinite(w.x) || !std::isfinite(w.y) || !std::isfinite(w.z)) {
+                            w = Vec3f::zero();
+                        } else {
+                            float angSpeedSq = w.lengthSquared();
+                            if (angSpeedSq > kMaxSpeed * kMaxSpeed) {
+                                w *= kMaxSpeed / std::sqrt(angSpeedSq);
+                            }
+                        }
+                    }
+                }
     }
 
     // ─── Phase 2b: Continuous Collision Detection (CCD) ─────────────────────────────────────
@@ -1663,9 +1908,10 @@ private:
     void runCCD(float dt) {
         float speedThresh = m_config.ccdSpeedThreshold;
         auto h = m_bodies.hot();  // hot view for velocity checks
-        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
-            if (!m_bodies.activeFlags[i]) continue;
-            if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
+
+        // Use active-dynamic index array instead of scanning all bodies.
+        for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+            std::size_t i = m_activeDynamicIndices[ai];
             CcdMode mode = static_cast<CcdMode>(m_bodies.ccdModes[i]);
             if (mode == CcdMode::None) continue;
             if (h.linearVelocities[i].length() < speedThresh) continue;
@@ -1945,43 +2191,60 @@ private:
     void integratePositions(float dt) {
         auto h = m_bodies.hot();  // solver-hot view
 
-        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
-            if (!m_bodies.activeFlags[i]) continue;
-            if (m_bodies.motionTypes[i] == MotionType::Static) continue;
+        // Aligned pointers for SIMD-friendly access.
+        Vec3f*      positions    = std::assume_aligned<16>(h.positions.data());
+        Vec3f*      linVels      = std::assume_aligned<16>(h.linearVelocities.data());
+        Vec3f*      angVels      = std::assume_aligned<16>(h.angularVelocities.data());
+        Quaternionf* rots        = std::assume_aligned<16>(h.rotations.data());
+        Quaternionf* inertiaRots = std::assume_aligned<16>(h.inertiaRotations.data());
+
+        // Active dynamic bodies — SIMD batch-4 for linear, per-body for angular.
+        std::size_t ai = 0;
+        std::size_t count = m_activeDynamicIndices.size();
+
+        // SIMD batch: process 4 bodies' linear positions at once.
+        for (; ai + 4 <= count; ai += 4) {
+            std::size_t idx[4] = {
+                m_activeDynamicIndices[ai + 0],
+                m_activeDynamicIndices[ai + 1],
+                m_activeDynamicIndices[ai + 2],
+                m_activeDynamicIndices[ai + 3]
+            };
+            integrateLinearPositionsBatch4(idx, positions, linVels, dt);
+
+            // Angular per-body (quaternion normalize not SIMD-friendly).
+            integrateAngularPosition(idx[0], angVels, rots, inertiaRots);
+            integrateAngularPosition(idx[1], angVels, rots, inertiaRots);
+            integrateAngularPosition(idx[2], angVels, rots, inertiaRots);
+            integrateAngularPosition(idx[3], angVels, rots, inertiaRots);
+        }
+
+        // Scalar remainder for the last 0-3 bodies.
+        for (; ai < count; ++ai) {
+            std::size_t i = m_activeDynamicIndices[ai];
 
             // Linear.
-            h.positions[i] += h.linearVelocities[i] * dt;
+            positions[i] += linVels[i] * dt;
 
-            if (m_bodies.motionTypes[i] == MotionType::Dynamic) {
-                // Angular: q' = q + ½ * ω * q * dt
-                Vec3f        w  = h.angularVelocities[i];
-                Quaternionf  dq = Quaternionf(0.0f, w.x, w.y, w.z) * h.rotations[i];
-                dq.w *= 0.5f * dt;
-                dq.x *= 0.5f * dt;
-                dq.y *= 0.5f * dt;
-                dq.z *= 0.5f * dt;
+            // Angular: q' = q + 1/2 * w * q * dt
+            integrateAngularPosition(i, angVels, rots, inertiaRots);
+        }
 
-                h.rotations[i].w += dq.w;
-                h.rotations[i].x += dq.x;
-                h.rotations[i].y += dq.y;
-                h.rotations[i].z += dq.z;
+        // ── Pass 2: Active kinematic bodies (not in dynamic index array) ────────────
+        // These only get linear position updates (no angular integration).
+        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
+            if (!m_bodies.activeFlags[i]) continue;
+            if (m_bodies.motionTypes[i] != MotionType::Kinematic) continue;
+            positions[i] += linVels[i] * dt;
+        }
 
-                h.rotations[i].normalize();
-                h.inertiaRotations[i] = h.rotations[i];
-            }
-
-            // ── NaN/Inf guard ────────────────────────────────────────────────────────
-            // Catches simulation instability early (applies to all simulation paths
-            // including the task-graph pipeline).  In a conforming IEEE-754 build,
-            // std::isfinite is a single integer-compare instruction per component.
-            if (!std::isfinite(h.positions[i].x) ||
-                !std::isfinite(h.positions[i].y) ||
-                !std::isfinite(h.positions[i].z)) {
-                std::fprintf(stderr,
-                    "[CiPhyxs] NaN/Inf position in body %zu at step %llu — simulation unstable\n",
-                    i, static_cast<unsigned long long>(m_stepCount));
-                // Clamp to zero to prevent cascading corruption.
-                h.positions[i] = Vec3f::zero();
+        // --- NaN/Inf guard (always-on) ---
+        {
+            for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+                std::size_t i = m_activeDynamicIndices[ai];
+                if (!std::isfinite(positions[i].x) || !std::isfinite(positions[i].y) || !std::isfinite(positions[i].z)) {
+                    positions[i] = Vec3f::zero();
+                }
             }
         }
     }
@@ -2032,8 +2295,8 @@ private:
     void updateSleep(float dt) {
         auto h = m_bodies.hot();  // hot view for velocity reads
 
-        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
-            if (m_bodies.motionTypes[i] != MotionType::Dynamic) continue;
+        for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+            std::size_t i = m_activeDynamicIndices[ai];
 
             float eKin = h.linearVelocities[i].lengthSquared()
                        + h.angularVelocities[i].lengthSquared();
@@ -2249,6 +2512,24 @@ private:
 
     /// @brief  Reusable task graph for the pipeline (rebuilt every fixed step).
     TaskGraph                         m_taskGraph;
+
+    // ─── Active body index array (avoids branching on activeFlags[] in hot loops) ─────────
+    /// Compact array of handles for all active dynamic bodies, rebuilt every frame after
+    /// the sleep phase. Hot loops iterate this array instead of all bodies with
+    /// `if (!activeFlags[i]) continue;`, eliminating branch mispredictions and
+    /// improving cache efficiency when many bodies are asleep.
+    std::vector<RigidBodyHandle>      m_activeDynamicIndices;
+
+    /// @brief  Rebuild the active-dynamic index array after sleep updates.
+    void rebuildActiveDynamicIndices() noexcept {
+        m_activeDynamicIndices.clear();
+        m_activeDynamicIndices.reserve(m_bodies.size());
+        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
+            if (m_bodies.activeFlags[i] && m_bodies.motionTypes[i] == MotionType::Dynamic) {
+                m_activeDynamicIndices.push_back(static_cast<RigidBodyHandle>(i));
+            }
+        }
+    }
 };
 
 //==================================================================================================

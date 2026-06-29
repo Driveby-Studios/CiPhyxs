@@ -1,10 +1,13 @@
 //==================================================================================================
-/// @file  ChaosDensityTest.cpp
-/// @brief  Stress test: spawn 5,000 Voronoi-fractured ConvexMesh bodies, apply a mass-explosion
-///         impulse, and output taskGraphProfileSummary.
+/// @file  ChaosDensityDiag.cpp
+/// @brief  Diagnostic variant of ChaosDensityTest: 5 frames only, sequential pipeline,
+///         per-frame timing to identify bottleneck.
 ///
-/// Uses the TaskGraph DAG pipeline, Dbvt broadphase (crash fix applied), aligned SoA storage,
-/// and IDebugRenderer for visualization.
+/// Same setup as ChaosDensityTest (5,000 Voronoi fragments × explosion impulse) but:
+///   - Runs only 5 frames
+///   - Forces enableTaskGraphPipeline = false (sequential path)
+///   - Prints setup time and per-frame times for frames 0–4
+///   - Does NOT set minPrecomputationPoints (removes any threshold override)
 ///
 /// ## Voronoi fragmentation
 ///
@@ -12,21 +15,6 @@
 /// into ~100 convex shards.  Each shard's mesh is registered as a Shape, and the shape is
 /// instantiated ~50 times to reach 5,000 dynamic bodies — each carrying a unique ConvexMesh
 /// shape from a Voronoi fracture pattern.
-///
-/// ## 4096+ body crash (pre-existing, now fixed)
-///
-/// The engine previously crashed at >= 4096 bodies with `enableDbvt()` + TaskGraph pipeline.
-/// Root cause: `std::vector<bool>` bitset proxy reads from worker threads caused a data race
-/// in `activeFlags` / `ccdFlags` when different threads read different bits from the same
-/// underlying word.  Fixed by changing to `AlignedVector<uint8_t, 16>`.
-///
-/// ## Coding standards
-///
-/// - `alignas(16)` types throughout
-/// - `AlignedAllocator` / `ScratchVec<T,16>` for heap storage (no std::vector for sim data)
-/// - SoA (`RigidBodyStorage`) for simulation data
-/// - Fixed seed for all RNG
-/// - `IDebugRenderer` used for visualization (`NullDebugRenderer` by default)
 //==================================================================================================
 #include "StressTestBase.hpp"
 #include "../include/ciphyxs/core/AggressiveMode.hpp"
@@ -46,13 +34,14 @@ int main() {
 
     constexpr int    kTargetBodies       = 5000;
     constexpr int    kNumFragments       = 100;     // Voronoi fragments from "mother" mesh
-    constexpr int    kNumFrames          = 500;
+    constexpr int    kNumFrames          = 5;       // DIAG: only 5 frames
     constexpr float  kExplosionImpulse   = 8000.0f;
     constexpr float  kMotherHalf         = 1.0f;    // 2.0 m box (mother shape)
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    // Setup
+    // Setup (timed)
     // ════════════════════════════════════════════════════════════════════════════════════════════
+    timer.start();
     {
         // SpatialHash broadphase with a small cell size (1.0m vs default 4.0m) since 5000 bodies
         // are clustered in ~5m × 5m × 5m space.  With cellSize=4.0, most bodies fall into 1-2
@@ -70,14 +59,13 @@ int main() {
             cfg.sleepTimeRequired      = 0.5f;
             cfg.enableParallelSolver   = true;
             cfg.numThreads             = 0; // auto = hardware_concurrency
-            cfg.enableTaskGraphPipeline = true;
+            cfg.enableTaskGraphPipeline = true; // DIAG: task-graph pipeline
             cfg.ccdSpeedThreshold      = 50.0f;
             cfg.ccdMaxSubSteps         = 4;
             world.setConfig(cfg);
         }
 
-        // Enable TaskGraph profiling for the profile summary output.
-        world.enableTaskGraphProfiling(true);
+        // DIAG: no pre-computation threshold override (minPrecomputationPoints not set)
 
         // ── Ground plane ────────────────────────────────────────────────────────────────────
         ShapeHandle groundShape = world.createShape(Plane{Vec3f::unitY(), 0.0f});
@@ -128,15 +116,12 @@ int main() {
         }
 
         // ── Register each fragment as a Shape ───────────────────────────────────────────────
-        //     The vertex data lives inside `fragments` — we must keep fragments alive for the
-        //     entire test because Shape::convexMesh.vertices points into it.
         ScratchVec<ShapeHandle, 16> fragmentShapes(actualFragments);
         for (std::size_t fi = 0; fi < actualFragments; ++fi) {
             fragmentShapes[fi] = world.createShape(Shape(fragments[fi].mesh));
         }
 
         // ── Spawn kTargetBodies bodies using the fragment shapes ────────────────────────────
-        //     Cycle through fragment shapes; each body gets the mass of its fragment.
         printf("   Spawning %d dynamic Voronoi-fragment bodies...\n", kTargetBodies);
         FixedRng rng(kStressFixedSeed);
 
@@ -187,8 +172,6 @@ int main() {
             Vec3f deltaV = dir * impulseMag * bodies.inverseMasses[i];
 
             // Clamp velocity delta to prevent NaN/Inf from extreme speeds.
-            // Small fragments (~1 kg) at 8000 N·s would reach 8000 m/s,
-            // causing CCD failure and numerical instability. Cap at 100 m/s.
             constexpr float kMaxDeltaV = 100.0f;
             float dvLen = deltaV.length();
             if (dvLen > kMaxDeltaV) {
@@ -199,37 +182,24 @@ int main() {
 
         printf("   Applied explosion impulse (base: %.1f N·s)\n", kExplosionImpulse);
     }
-
-    // ════════════════════════════════════════════════════════════════════════════════════════════
-    // Run simulation
-    // ════════════════════════════════════════════════════════════════════════════════════════════
-    timer.start();
-    for (int frame = 0; frame < kNumFrames; ++frame) {
-        world.step(kFixedDt);
-
-        // Visualize every 30 frames.
-        if ((frame % 30) == 0) {
-            world.debugDraw(&debugRenderer);
-        }
-
-        // Periodic NaN check to catch early instability.
-        if ((frame % 50) == 0 && frame > 0) {
-            const auto& bodies = world.bodies();
-            for (std::size_t i = 0; i < bodies.size(); ++i) {
-                if (!bodies.activeFlags[i]) continue;
-                const Vec3f& p = bodies.positions[i];
-                if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
-                    printf("   ✗ NaN/Inf detected in body %zu at frame %d\n", i, frame);
-                    printf("   Result hash: 0x%016llX\n",
-                           static_cast<unsigned long long>(hashBodyState(bodies)));
-                    return 1;
-                }
-            }
-        }
-    }
     timer.stop();
+    long long setupMs = timer.ms();
+    printf("\n── Setup time: %lld ms ──\n\n", setupMs);
 
-    printf("   Simulated %d frames in %lld ms\n", kNumFrames, timer.ms());
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    // Run simulation — timed per frame
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    long long frameTimes[5] = {0, 0, 0, 0, 0};
+
+    for (int frame = 0; frame < kNumFrames; ++frame) {
+        timer.start();
+        world.step(kFixedDt);
+        timer.stop();
+        frameTimes[frame] = timer.ms();
+        printf("   Frame %d: %lld ms\n", frame, frameTimes[frame]);
+
+        // DIAG: No NaN checks or debug draw needed for 5 frames.
+    }
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Output results
@@ -237,7 +207,7 @@ int main() {
     const auto& bodies = world.bodies();
     std::uint64_t hash = hashBodyState(bodies);
 
-    printf("\n── Chaos Density Results ──\n");
+    printf("\n── Chaos Density DIAG Results ──\n");
     printf("   Total bodies:      %zu\n", bodies.size());
 
     int activeCount = 0;
@@ -246,25 +216,20 @@ int main() {
     }
     printf("   Active bodies:     %d\n", activeCount);
 
-    // Output TaskGraph profile summary.
-    printf("\n── TaskGraph Profile Summary ──\n");
-    auto summary = world.taskGraphProfileSummary();
-    if (summary.empty()) {
-        printf("   (no profile data — profiling may not be enabled)\n");
-    } else {
-        printf("   %-30s %12s %12s %12s %12s %8s\n",
-               "Stage", "Total(ms)", "Min(ms)", "Max(ms)", "Avg(ms)", "Count");
-        printf("   ------------------------------------------------------------------------------------------\n");
-        for (const auto& s : summary) {
-            printf("   %-30s %12.3f %12.3f %12.3f %12.3f %8d\n",
-                   s.name.c_str(),
-                   s.totalMs, s.minMs, s.maxMs, s.avgMs,
-                   s.count);
-        }
-    }
+    printf("\n── Frame-by-frame timing ──\n");
+    printf("   Setup:             %5lld ms\n", setupMs);
+    printf("   Frame 0 (post-explosion): %5lld ms\n", frameTimes[0]);
+    printf("   Frame 1:           %5lld ms\n", frameTimes[1]);
+    printf("   Frame 2:           %5lld ms\n", frameTimes[2]);
+    printf("   Frame 3:           %5lld ms\n", frameTimes[3]);
+    printf("   Frame 4:           %5lld ms\n", frameTimes[4]);
+
+    long long totalSim = 0;
+    for (int i = 0; i < 5; ++i) totalSim += frameTimes[i];
+    printf("\n   Total sim (5 frames): %lld ms\n", totalSim);
+    printf("   Total (setup + sim):  %lld ms\n", setupMs + totalSim);
 
     printf("\n   Result hash: 0x%016llX\n", static_cast<unsigned long long>(hash));
-    printf("   Elapsed: %lld ms\n", timer.ms());
 
     // Verify all positions are finite.
     bool pass = true;

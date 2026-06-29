@@ -1704,11 +1704,21 @@ inline bool collideBoxTriangleMesh(const TriangleMesh& mesh,
         // 1. Check box corners against triangle.
         // We use a winding-independent approach: any corner whose projection into the
         // triangle plane falls inside the triangle generates a contact. The contact
-        // normal always points FROM the contact surface TOWARD the penetrating vertex.
+        // normal always points FROM the triangle surface AWAY from the mesh interior,
+        // which is the direction of -triNormal for a well-formed mesh.
+        //
+        // NOTE: sd = triNormal·corner - triD.
+        //   For a ground mesh with triNormal = (0,-1,0):
+        //     sd < 0  → corner above the surface (no penetration, skip)
+        //     sd > 0  → corner below the surface (penetrating, process)
+        //   The contact normal points opposite to triNormal (i.e., outward from the
+        //   mesh surface), regardless of which side the corner is on.
+        Vec3f outwardNormal = (triNormal.lengthSquared() > 1e-12f)
+                              ? -triNormal / triNormal.length()
+                              : Vec3f(0.0f, 1.0f, 0.0f);
         for (int i = 0; i < 8; ++i) {
             float sd = triNormal.dot(corners[i]) - triD;
-            float absSd = std::abs(sd);
-            if (absSd < 1e-8f) continue; // on the surface — skip
+            if (sd < 1e-8f) continue; // at or above the surface — no penetration
 
             // Project corner onto triangle plane.
             Vec3f proj = corners[i] - triNormal * sd;
@@ -1720,20 +1730,15 @@ inline bool collideBoxTriangleMesh(const TriangleMesh& mesh,
             if (diff.lengthSquared() > 1e-6f) continue; // projection outside triangle
 
             // Valid contact: corner penetrating through this triangle.
-            // Normal points FROM the triangle surface TOWARD the penetrating corner.
+            // Use the outward-facing normal (from mesh surface toward exterior).
+            // The penetration depth is the actual Euclidean distance from corner
+            // to the closest point on the triangle surface.
             Vec3f contactDir = corners[i] - closest;
             float dirLen = contactDir.length();
-            Vec3f normal;
-            if (dirLen > 1e-8f) {
-                normal = contactDir / dirLen;
-            } else {
-                normal = (sd >= 0.0f) ? triNormal : -triNormal;
-            }
-
             ContactPoint pt;
             pt.position    = closest;
-            pt.normal      = normal;
-            pt.penetration = dirLen;
+            pt.normal      = outwardNormal;
+            pt.penetration = dirLen > 1e-8f ? dirLen : sd;
             manifold.addPoint(pt);
             hit = true;
         }
@@ -1908,6 +1913,12 @@ inline bool collideCapsuleTriangleMesh(const TriangleMesh& mesh,
 
     if (!hit) return false;
 
+    // Ensure the normal points from mesh toward capsule body.
+    Vec3f meshToCapDir = (posCap - posM).normalized();
+    if (bestNormal.dot(meshToCapDir) < 0.0f) {
+        bestNormal = -bestNormal;
+    }
+
     manifold.clearPoints();
     ContactPoint pt;
     pt.position    = bestPos;
@@ -1999,11 +2010,15 @@ inline bool collideConvexMeshTriangleMesh(const TriangleMesh& mesh,
         // 1. Check each convex hull vertex against the triangle plane.
         // Uses winding-independent approach: any vertex whose projection onto the
         // triangle plane falls inside the triangle generates a contact.
-        // The contact normal always points FROM the contact surface TOWARD the vertex.
+        // The contact normal always points outward from the mesh surface (-
+        // triNormal), which is the direction to push the other body away.
+        // Vertices at or above the surface are skipped (sd < 0 = above).
+        Vec3f outwardNormal = (triNormal.lengthSquared() > 1e-12f)
+                              ? -triNormal / triNormal.length()
+                              : Vec3f(0.0f, 1.0f, 0.0f);
         for (int i = 0; i < numWorldVerts; ++i) {
             float sd = triNormal.dot(worldVerts[i]) - triD;
-            float absSd = std::abs(sd);
-            if (absSd < 1e-8f) continue; // on the surface — skip
+            if (sd < 1e-8f) continue; // at or above the surface — no penetration
 
             // Project vertex onto triangle plane.
             Vec3f proj = worldVerts[i] - triNormal * sd;
@@ -2015,19 +2030,13 @@ inline bool collideConvexMeshTriangleMesh(const TriangleMesh& mesh,
             if (diff.lengthSquared() > 1e-6f) continue; // projection outside triangle
 
             // Valid contact: vertex penetrating through this triangle.
-            // Compute normal from closest surface point toward the vertex.
+            // Use outward-facing normal, penetration = Euclidean distance to surface.
             Vec3f contactDir = worldVerts[i] - closest;
             float dirLen = contactDir.length();
             if (dirLen > bestPen) {
-                Vec3f normal;
-                if (dirLen > 1e-8f) {
-                    normal = contactDir / dirLen;
-                } else {
-                    normal = (sd >= 0.0f) ? triNormal : -triNormal;
-                }
-                bestPen = dirLen;
+                bestPen = dirLen > 1e-8f ? dirLen : sd;
                 bestPos = closest;
-                bestNormal = normal;
+                bestNormal = outwardNormal;
                 hit = true;
             }
         }

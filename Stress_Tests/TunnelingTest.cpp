@@ -40,7 +40,7 @@ int main() {
         {
             PhysicsWorldConfig cfg;
             cfg.gravity             = Vec3f::zero();   // no gravity — pure ballistic test
-            cfg.fixedTimestep       = 1.0f / 120.0f;   // smaller timestep for better CCD
+            cfg.fixedTimestep       = kFixedDt;
             cfg.linearDamping       = 0.0f;
             cfg.angularDamping      = 0.0f;
             cfg.ccdSpeedThreshold   = 5.0f;            // enable CCD above 5 m/s
@@ -112,7 +112,7 @@ int main() {
     // ════════════════════════════════════════════════════════════════════════════════════════════
     timer.start();
     for (int frame = 0; frame < kNumFrames; ++frame) {
-        world.step(1.0f / 120.0f);
+        world.step(kFixedDt);
 
         // Visualize every 60 frames.
         if ((frame % 60) == 0) {
