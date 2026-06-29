@@ -1594,9 +1594,12 @@ private:
             // Split CCD bodies and broadphase pairs across the thread pool workers
             // for better CPU utilization even with a single large island.
             std::size_t numWorkers = ensureThreadPool().threadCount();
+            // Only parallelize for large enough workloads — the chunk overhead
+            // (8-16 extra DAG nodes + thread synchronization) is not worth it for
+            // small scenes like the DeepStackTest (200 bodies).
             bool canParallel = (numWorkers > 1
-                                && m_activeDynamicIndices.size() >= 64
-                                && !m_pairs.empty());
+                                && m_activeDynamicIndices.size() >= 256
+                                && m_pairs.size() >= 512);
 
             if (!canParallel) {
                 // Sequential path: everything in one task (small scenes).
@@ -1610,8 +1613,10 @@ private:
                 islandFinalIds.push_back(stageGlobal);
             } else {
                 // ── Parallel CCD: split active-dynamic bodies into chunks ─────────
+                // Cap chunks at 4 to limit DAG node overhead.
                 std::size_t numCCDChunks = std::min(numWorkers,
-                    (m_activeDynamicIndices.size() + 31) / 32);
+                    (m_activeDynamicIndices.size() + 127) / 128);
+                numCCDChunks = std::min(numCCDChunks, std::size_t{4});
                 std::size_t bodiesPerChunk = (m_activeDynamicIndices.size()
                                               + numCCDChunks - 1) / numCCDChunks;
 
@@ -1638,8 +1643,10 @@ private:
                 }
 
                 // ── Parallel narrowphase: split broadphase pairs into chunks ────
+                // Cap chunks at 4 to limit DAG node overhead.
                 std::size_t numNarrowChunks = std::min(numWorkers,
-                    (m_pairs.size() + 63) / 64);
+                    (m_pairs.size() + 255) / 256);
+                numNarrowChunks = std::min(numNarrowChunks, std::size_t{4});
                 std::size_t pairsPerChunk = (m_pairs.size()
                                              + numNarrowChunks - 1) / numNarrowChunks;
 
