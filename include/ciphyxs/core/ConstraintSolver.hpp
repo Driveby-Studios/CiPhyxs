@@ -78,6 +78,14 @@ struct SolverConfig {
     ///         avoiding overhead for tiny contact sets (common in ChaosDensityTest
     ///         where small Voronoi fragments produce 1-2 contacts per pair).
     std::uint32_t minPrecomputationPoints = 4;
+
+    /// @brief  Early-exit convergence threshold (impulse-change sum per iteration).
+    ///         When the sum of absolute impulse deltas across all contacts in an
+    ///         iteration drops below this threshold, the solver exits early.
+    ///         Set to 0 to disable (always run all iterations).
+    ///         Default: 0.001 — small enough to not affect stacking quality while
+    ///         saving iterations on nearly-settled stacks.
+    float earlyExitThreshold = 0.001f;
 };
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -199,7 +207,10 @@ public:
             }
 
             // --- Phase 3: Main solver loop -- uses pre-computed scratch data ------------
+            // Early-exit: track total absolute impulse change per iteration.
+            // When the sum drops below earlyExitThreshold, convergence is reached.
             for (std::uint32_t iter = 0; iter < config.numIterations; ++iter) {
+                float totalChange = 0.0f;
                 std::size_t si = 0;
                 for (auto& manifold : manifolds) {
                     float combinedFriction    = manifold.combinedFriction;
@@ -229,6 +240,7 @@ public:
                         float newN = pt.normalImpulse + lambdaN;
                         if (newN < 0.0f) newN = 0.0f;
                         float appliedN = newN - pt.normalImpulse;
+                        totalChange += std::abs(appliedN);
                         pt.normalImpulse = newN;
 
                         Vec3f impulseN = n * appliedN;
@@ -249,6 +261,7 @@ public:
                             float newT = pt.tangentImpulse[d] + lt;
                             newT = std::max(-maxF, std::min(maxF, newT));
                             float appliedT = newT - pt.tangentImpulse[d];
+                            totalChange += std::abs(appliedT);
                             pt.tangentImpulse[d] = newT;
                             impulseF += cd.tangent[d] * appliedT;
                         }
@@ -256,14 +269,23 @@ public:
                         applyImpulse(h, cd.bodyA, cd.bodyB, impulseF, cd.rA, cd.rB);
                     }
                 }
+                // Early-exit: if total impulse change is below threshold, converged.
+                if (config.earlyExitThreshold > 0.0f && totalChange < config.earlyExitThreshold) {
+                    break;
+                }
             }
         } else {
             // --- No pre-computation: use per-manifold solveManifold (on-the-fly) -------
             // For tiny contact sets, this avoids scratch overhead with negligible
             // per-iteration cost increase.
             for (std::uint32_t iter = 0; iter < config.numIterations; ++iter) {
+                float totalChange = 0.0f;
                 for (auto& manifold : manifolds) {
-                    solveManifold(dt, manifold, h, config);
+                    totalChange += solveManifold(dt, manifold, h, config);
+                }
+                // Early-exit: if total impulse change is below threshold, converged.
+                if (config.earlyExitThreshold > 0.0f && totalChange < config.earlyExitThreshold) {
+                    break;
                 }
             }
         }
@@ -460,10 +482,11 @@ private:
 
     // ─── Solve one manifold ─────────────────────────────────────────────────────────────────────
 
-    void solveManifold(float dt,
-                       ContactManifold& manifold,
-                       RigidBodyHotSpan h,
-                       const SolverConfig& config) const noexcept {
+    /// @brief  Solve one manifold.  Returns the sum of absolute impulse changes for convergence tracking.
+    float solveManifold(float dt,
+                        ContactManifold& manifold,
+                        RigidBodyHotSpan h,
+                        const SolverConfig& config) const noexcept {
 
         RigidBodyHandle hA = manifold.bodyA;
         RigidBodyHandle hB = manifold.bodyB;
@@ -474,6 +497,8 @@ private:
         Vec3f invInertiaB = h.inverseInertiaDiag[hB];
         Quaternionf inertiaRotA = h.inertiaRotations[hA];
         Quaternionf inertiaRotB = h.inertiaRotations[hB];
+
+        float totalChange = 0.0f;
 
         for (int p = 0; p < manifold.pointCount; ++p) {
             auto& pt = manifold.points[p];
@@ -536,6 +561,7 @@ private:
             float newN = pt.normalImpulse + lambdaN;
             if (newN < 0.0f) newN = 0.0f;
             float appliedN = newN - pt.normalImpulse;
+            totalChange += std::abs(appliedN);
             pt.normalImpulse = newN;
 
             Vec3f impulseN = n * appliedN;
@@ -562,6 +588,7 @@ private:
                 float maxF = manifold.combinedFriction * pt.normalImpulse;
                 newT = std::max(-maxF, std::min(maxF, newT));
                 float appliedT = newT - pt.tangentImpulse[d];
+                totalChange += std::abs(appliedT);
                 pt.tangentImpulse[d] = newT;
                 lambdaT[d] = appliedT;
             }
@@ -573,6 +600,7 @@ private:
             pt.tangent[0] = t1;
             pt.tangent[1] = t2;
         }
+        return totalChange;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────────────────────

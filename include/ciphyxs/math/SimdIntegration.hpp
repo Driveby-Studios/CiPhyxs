@@ -22,6 +22,7 @@
 #include "Vec3.hpp"
 #include "Quaternion.hpp"
 #include <cstddef>
+#include <cstdint>
 
 namespace ciphyxs {
 
@@ -546,11 +547,12 @@ inline void clampVelocityBatch4(
         _mm_cmpord_ps(vx, vx),
         _mm_and_ps(_mm_cmpord_ps(vy, vy), _mm_cmpord_ps(vz, vz)));
     // ordMask has all-ones for finite, all-zeros for NaN.
-    // We want to clamp NaN bodies: invert to get NaN mask.
-    // But we can just blend: if speed > max OR NaN → clamp/zero.
+    // We want to clamp NaN bodies. Use cast-to-float of all-ones integer
+    // (0xFFFFFFFF) rather than _mm_set1_ps(-1.0f) which is only 0xBF800000.
+    __m128 allOnes = _mm_castsi128_ps(_mm_set1_epi32(-1));
     __m128 needClamp = _mm_or_ps(
         _mm_cmpgt_ps(speedSq, maxSq),
-        _mm_andnot_ps(ordMask, _mm_set1_ps(-1.0f)));  // NaN bodies -> all-ones
+        _mm_andnot_ps(ordMask, allOnes));  // NaN bodies -> all-ones
 
     // Compute scale = kMaxSpeed / sqrt(speedSq) for bodies above threshold
     // But we need to guard against NaN speeds — zero those bodies.
@@ -606,7 +608,7 @@ inline void clampVelocityBatch4(
         _mm_and_ps(_mm_cmpord_ps(awy, awy), _mm_cmpord_ps(awz, awz)));
     __m128 needAngClamp = _mm_or_ps(
         _mm_cmpgt_ps(angSpeedSq, maxSq),
-        _mm_andnot_ps(ordAng, _mm_set1_ps(-1.0f)));
+        _mm_andnot_ps(ordAng, allOnes));
 
     __m128 angSqrt = _mm_sqrt_ps(angSpeedSq);
     __m128 angScale = _mm_div_ps(_mm_set1_ps(kMaxSpeed), angSqrt);
@@ -653,6 +655,67 @@ inline void clampVelocityBatch4(
             if (angSpeedSq > kMaxSpeed * kMaxSpeed) {
                 w *= kMaxSpeed / std::sqrt(angSpeedSq);
             }
+        }
+    }
+#endif
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Position NaN/Inf guard — batch 4 bodies
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// @brief  Batch-check 4 bodies for NaN/Inf positions and zero them out.
+///
+/// Uses SSE2 SIMD `cmpord` to detect NaN/Inf components (cmpord returns
+/// all-zeros for NaN/Inf, all-ones for finite).  Bodies with any NaN/Inf
+/// component have their position zeroed.
+///
+/// @param idx        4 body indices.
+/// @param positions  Per-body position array (read-write).
+inline void checkPositionsFiniteBatch4(
+    const std::size_t idx[4],
+    Vec3f*            positions) noexcept {
+
+#if CIPHYXS_HAS_SSE2
+    // Gather positions
+    __m128 px = _mm_setr_ps(
+        positions[idx[0]].x, positions[idx[1]].x,
+        positions[idx[2]].x, positions[idx[3]].x);
+    __m128 py = _mm_setr_ps(
+        positions[idx[0]].y, positions[idx[1]].y,
+        positions[idx[2]].y, positions[idx[3]].y);
+    __m128 pz = _mm_setr_ps(
+        positions[idx[0]].z, positions[idx[1]].z,
+        positions[idx[2]].z, positions[idx[3]].z);
+
+    // cmpord returns all-ones for finite, all-zeros for NaN/Inf.
+    __m128 ordMask = _mm_and_ps(
+        _mm_cmpord_ps(px, px),
+        _mm_and_ps(_mm_cmpord_ps(py, py),
+                    _mm_cmpord_ps(pz, pz)));
+
+    // ordMask is all-ones for finite positions, all-zeros for NaN/Inf.
+    // Zero out NaN positions: result = positions & ordMask
+    px = _mm_and_ps(px, ordMask);
+    py = _mm_and_ps(py, ordMask);
+    pz = _mm_and_ps(pz, ordMask);
+
+    // Scatter
+    alignas(16) float px_a[4], py_a[4], pz_a[4];
+    _mm_store_ps(px_a, px);
+    _mm_store_ps(py_a, py);
+    _mm_store_ps(pz_a, pz);
+    positions[idx[0]] = Vec3f(px_a[0], py_a[0], pz_a[0]);
+    positions[idx[1]] = Vec3f(px_a[1], py_a[1], pz_a[1]);
+    positions[idx[2]] = Vec3f(px_a[2], py_a[2], pz_a[2]);
+    positions[idx[3]] = Vec3f(px_a[3], py_a[3], pz_a[3]);
+#else
+    // ── Scalar fallback ────────────────────────────────────────────────────────────────
+    for (int b = 0; b < 4; ++b) {
+        std::size_t i = idx[b];
+        Vec3f& p = positions[i];
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
+            p = Vec3f::zero();
         }
     }
 #endif

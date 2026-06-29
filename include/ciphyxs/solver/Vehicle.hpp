@@ -319,9 +319,21 @@ private:
                 latForce  *= scale;
             }
 
+            // ── Anti-squat tire force application ────────────────────────────────────────
+            //
+            // Longitudinal (drive/brake) force is applied at the center of mass with NO
+            // torque.  In a real vehicle the suspension geometry creates an "anti-squat"
+            // reaction that cancels most of the pitch torque from the drive force.
+            // Without modelling the full linkage, applying the longitudinal force at
+            // the COM prevents the drive force from creating an un-damped nose-up pitch
+            // that loads the rear suspension and launches the chassis into the air.
+            //
+            // Lateral (cornering) force IS applied at the contact patch with full torque,
+            // producing realistic body roll during turns.
             Vec3f tireForce = longDir * longForce + latDir * latForce;
             bodies.forces[h]  += tireForce;
-            bodies.torques[h] += r.cross(tireForce);
+            Vec3f latTorque   = r.cross(latDir * latForce);  // roll torque from cornering
+            bodies.torques[h] += latTorque;
 
             // ── 6. Drive torque (engine) ───────────────────────────────────────────────────
             if (cfg.canDrive && m_throttle > 0.0f) {

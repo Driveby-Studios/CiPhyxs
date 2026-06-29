@@ -91,6 +91,40 @@ public:
         });
     }
 
+    /// @brief  Drain all pending work and force-idle workers without stopping the pool.
+    ///
+    /// This is a pre-destruction safety measure: it wakes all workers, processes any
+    /// remaining tasks, and waits until all workers are idle.  Prevents races where
+    /// worker threads access member data after member destructors have run (a known
+    /// issue with std::jthread on some MinGW implementations).
+    ///
+    /// Safe to call multiple times.  After drain(), the pool is still operational
+    /// (stop is NOT set) — workers will wait on the CV for new tasks.
+    void drain() noexcept {
+        // Wake all workers.  Uses the same condition variable as wait(), but with
+        // a spin-before-sleep pattern: spin briefly (16 iterations) then fall
+        // back to CV wait to avoid wasteful long-term spinning.
+        // Reduced from 128 to 16 for low-end CPUs (1.6GHz, 2-core) where
+        // aggressive spinning steals cycles from the workers themselves.
+        for (int spin = 0; ; ++spin) {
+            {
+                std::lock_guard lock(m_mutex);
+                if (m_tasks.empty() && m_active.load(std::memory_order_acquire) == 0)
+                    return;
+            }
+            if (spin < 128) {
+                std::this_thread::yield();
+            } else {
+                // Fall back to blocking wait.
+                std::unique_lock lock(m_mutex);
+                m_idleCv.wait(lock, [this] {
+                    return m_tasks.empty() && m_active.load(std::memory_order_acquire) == 0;
+                });
+                return;
+            }
+        }
+    }
+
     // ─── Parallel for ───────────────────────────────────────────────────────────────────────────
 
     /// @brief  Execute `func(i)` for every `i` in `[begin, end)`.

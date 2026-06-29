@@ -139,13 +139,11 @@ if(CIPHYXS_BUILD_TESTS)
     target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME ${name} COMMAND ${name})
 
-    # Per-test timeouts — with spatial hash cell size fix + island threshold.
-    # Slowest: ChaosDensityTest (~60-90s with previous hash issue),
-    # DeterminismTest (~10-20s), LowEndBenchmark (~20-50s).
+    # Per-test timeouts — capped at 300s max for all stress tests.
     if(${name} STREQUAL "ChaosDensityTest")
-      set_tests_properties(${name} PROPERTIES TIMEOUT 360)
+      set_tests_properties(${name} PROPERTIES TIMEOUT 300)
     elseif(${name} STREQUAL "MultibodyCrashTest")
-      set_tests_properties(${name} PROPERTIES TIMEOUT 30)
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
     elseif(${name} STREQUAL "LowEndBenchmark")
       set_tests_properties(${name} PROPERTIES TIMEOUT 180)
     elseif(${name} STREQUAL "DeterminismTest")

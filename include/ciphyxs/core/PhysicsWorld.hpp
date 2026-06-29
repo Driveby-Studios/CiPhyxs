@@ -226,6 +226,19 @@ public:
     // ─── Lifecycle ──────────────────────────────────────────────────────────────────────────────
     PhysicsWorld() = default;
 
+    /// @brief  Destroy the world, ensuring the thread pool is drained before
+    ///         member objects are destroyed (prevents MinGW/std::jthread races).
+    ~PhysicsWorld() {
+        if (m_threadPool) {
+            // Ensure all worker threads are idle before any member destructors run.
+            m_threadPool->drain();
+        }
+    }
+
+    /// @brief  Move constructor.  Explicitly defaulted because the user-defined
+    ///         destructor above suppresses the implicit move constructor.
+    PhysicsWorld(PhysicsWorld&&) = default;
+
     /// @brief  Construct with explicit configuration.
     explicit PhysicsWorld(const PhysicsWorldConfig& config) : m_config(config) {}
 
@@ -235,13 +248,17 @@ public:
     /// via `setConfig()` / `solverConfig()` after construction.
     explicit PhysicsWorld(Preset preset) noexcept {
         if (preset == Preset::LowEnd) {
-            // ── Low-end preset (mirrors aggressive::applyLowEndPreset) ────────────────────
+            // ── Low-end preset (optimised for 2-core 1.6GHz, 512MB RAM) ─────────────────
+            //     Uses only 1 worker thread to avoid oversubscription on 2-core CPUs.
+            //     The calling thread participates in the work, giving 2 total threads
+            //     for the solver pipeline.  More threads would cause excessive context
+            //     switching and cache pollution on constrained hardware.
             m_config.linearDamping          = 0.3f;
             m_config.angularDamping         = 0.3f;
             m_config.sleepEnergyThreshold   = 0.01f;
             m_config.sleepTimeRequired      = 0.1f;
             m_config.enableParallelSolver   = true;
-            m_config.numThreads             = 0;       // auto
+            m_config.numThreads             = 1;       // 1 worker + 1 caller = 2 total
             m_config.enableTaskGraphPipeline = true;
             m_config.ccdSpeedThreshold      = 20.0f;
             m_config.ccdMaxSubSteps         = 2;
@@ -253,6 +270,7 @@ public:
             m_solverConfig.enableWarmStart         = true;
             m_solverConfig.warmStartFactor         = 0.6f;
             m_solverConfig.restitutionThreshold    = 2.0f;
+            m_solverConfig.earlyExitThreshold      = 0.005f;  // more aggressive early-exit
 
             m_broadphaseConfig.type = BroadphaseType::SimdBruteForce;
 
@@ -701,13 +719,16 @@ public:
     /// \f]
     /// Only the diagonal is stored; off-diagonal terms are discarded.
     RigidBodyHandle createBody(const RigidBodyDesc& desc) {
-        RigidBodyHandle h = m_bodies.emplace(desc);
+    RigidBodyHandle h = m_bodies.emplace(desc);
 
-        // Ensure destructible tracking arrays match body count.
-        if (h >= m_destructibleFlags.size()) {
-            m_destructibleFlags.resize(h + 1, 0);
-            m_destructibleData.resize(h + 1);
-        }
+    // Body added — mark index array dirty for next rebuild.
+    m_activeIndicesDirty = true;
+
+    // Ensure destructible tracking arrays match body count.
+    if (h >= m_destructibleFlags.size()) {
+        m_destructibleFlags.resize(h + 1, 0);
+        m_destructibleData.resize(h + 1);
+    }
 
         // Auto-compute inertia from sub-shapes when requested.
         if (desc.useAutoInertia && !desc.subShapes.empty()
@@ -743,6 +764,8 @@ public:
 
     /// @brief  Remove a body by handle.  Invalidates the handles of the last body (swap+pop).
     void removeBody(RigidBodyHandle handle) {
+        // Body removed — mark index array dirty for next rebuild.
+        m_activeIndicesDirty = true;
         m_bodies.remove(handle);
         // Keep destructible tracking in sync with the swap-pop.
         std::size_t last = m_destructibleFlags.size() - 1;
@@ -760,6 +783,7 @@ public:
 
     /// @brief  Remove all bodies and reset state.
     void clear() {
+        m_activeIndicesDirty = true;
         m_bodies.clear();
         m_shapes.clear();
         m_manifolds.clear();
@@ -1502,7 +1526,9 @@ private:
         // 200 islands × 4 tasks = 800 task nodes per frame — the DAG building and
         // dispatch cost is already significant at this point. For ChaosDensityTest's
         // 5000 Voronoi fragments, post-explosion we can see 2000+ islands.
-        static constexpr std::size_t kMaxIslandsForPerIsland = 200;
+        // Reduced to 32 for 2-core systems where per-island task overhead exceeds
+        // parallelisation benefit for more than ~32 small islands.
+        static constexpr std::size_t kMaxIslandsForPerIsland = 32;
 
         std::vector<TaskId> islandFinalIds;
         bool usePerIsland = (m_useParallelSolver && m_islandSolver.hasIslands()
@@ -1742,6 +1768,14 @@ private:
 
         // ── Execute the graph ──────────────────────────────────────────────────────────────
         graph.execute(ensureThreadPool());
+
+        // Drain the thread pool after each frame to flush any residual work items
+        // and guarantee all worker threads are idle before the next frame builds
+        // its DAG.  This prevents races on MinGW where worker threads may still
+        // hold references to task graph data during the next frame's clear()+add().
+        if (m_threadPool) {
+            m_threadPool->drain();
+        }
 
         // Accumulate profile events across frames if profiling is enabled.
         if (graph.isProfilingEnabled()) {
@@ -2300,12 +2334,25 @@ private:
             positions[i] += linVels[i] * dt;
         }
 
-        // --- NaN/Inf guard (always-on) ---
+        // --- NaN/Inf guard (always-on, SIMD batch-4) ---
         {
-            for (std::size_t ai = 0; ai < m_activeDynamicIndices.size(); ++ai) {
+            std::size_t ai = 0;
+            std::size_t count = m_activeDynamicIndices.size();
+            for (; ai + 4 <= count; ai += 4) {
+                std::size_t idx[4] = {
+                    m_activeDynamicIndices[ai + 0],
+                    m_activeDynamicIndices[ai + 1],
+                    m_activeDynamicIndices[ai + 2],
+                    m_activeDynamicIndices[ai + 3]
+                };
+                checkPositionsFiniteBatch4(idx, positions);
+            }
+            // Scalar remainder for the last 0-3 bodies.
+            for (; ai < count; ++ai) {
                 std::size_t i = m_activeDynamicIndices[ai];
-                if (!std::isfinite(positions[i].x) || !std::isfinite(positions[i].y) || !std::isfinite(positions[i].z)) {
-                    positions[i] = Vec3f::zero();
+                Vec3f& p = positions[i];
+                if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
+                    p = Vec3f::zero();
                 }
             }
         }
@@ -2375,6 +2422,12 @@ private:
                 m_activeDynamicIndices[ai + 2],
                 m_activeDynamicIndices[ai + 3]
             };
+            // Save original flags for change detection (the SIMD batch function
+            // writes directly to activeFlags).
+            uint8_t flagBefore[4] = {
+                activeFlags[idx[0]], activeFlags[idx[1]],
+                activeFlags[idx[2]], activeFlags[idx[3]]
+            };
             updateSleepBatch4(idx,
                 h.linearVelocities.data(),
                 h.angularVelocities.data(),
@@ -2383,6 +2436,13 @@ private:
                 dt,
                 m_config.sleepEnergyThreshold,
                 m_config.sleepTimeRequired);
+            // Check if any flag changed in this batch.
+            for (int b = 0; b < 4; ++b) {
+                if (activeFlags[idx[b]] != flagBefore[b]) {
+                    m_activeIndicesDirty = true;
+                    break;
+                }
+            }
         }
 
         // Scalar remainder for the last 0-3 bodies.
@@ -2392,6 +2452,8 @@ private:
             float eKin = h.linearVelocities[i].lengthSquared()
                        + h.angularVelocities[i].lengthSquared();
 
+            uint8_t flagBefore = m_bodies.activeFlags[i];
+
             if (eKin < m_config.sleepEnergyThreshold) {
                 m_bodies.sleepTimers[i] += dt;
                 if (m_bodies.sleepTimers[i] >= m_config.sleepTimeRequired) {
@@ -2400,6 +2462,10 @@ private:
             } else {
                 m_bodies.sleepTimers[i] = 0.0f;
                 m_bodies.activeFlags[i] = true;
+            }
+
+            if (m_bodies.activeFlags[i] != flagBefore) {
+                m_activeIndicesDirty = true;
             }
         }
     }
@@ -2608,14 +2674,22 @@ private:
     mutable std::vector<TaskGraph::ProfileEvent> m_accumulatedProfileEvents;
 
     // ─── Active body index array (avoids branching on activeFlags[] in hot loops) ─────────
-    /// Compact array of handles for all active dynamic bodies, rebuilt every frame after
+    /// @brief  Compact array of handles for all active dynamic bodies, rebuilt every frame after
     /// the sleep phase. Hot loops iterate this array instead of all bodies with
     /// `if (!activeFlags[i]) continue;`, eliminating branch mispredictions and
     /// improving cache efficiency when many bodies are asleep.
     std::vector<RigidBodyHandle>      m_activeDynamicIndices;
 
-    /// @brief  Rebuild the active-dynamic index array after sleep updates.
+    /// @brief  Dirty flag: when true, rebuildActiveDynamicIndices() must re-scan all bodies.
+    /// Set to true when any body's activeFlags or motionTypes change.
+    bool m_activeIndicesDirty = true;
+
+    /// @brief  Rebuild the active-dynamic index array after sleep/awake/freeze changes.
+    /// Only performs a full scan when m_activeIndicesDirty is true (i.e., when
+    /// sleep/awake/freeze modified the active set since the last rebuild).
+    /// This saves an O(N) scan every frame when no bodies change sleep state.
     void rebuildActiveDynamicIndices() noexcept {
+        if (!m_activeIndicesDirty) return;
         m_activeDynamicIndices.clear();
         m_activeDynamicIndices.reserve(m_bodies.size());
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
@@ -2623,8 +2697,14 @@ private:
                 m_activeDynamicIndices.push_back(static_cast<RigidBodyHandle>(i));
             }
         }
+        m_activeIndicesDirty = false;
     }
 
+    /// @brief  Mark the active-dynamic indices as dirty, forcing a rebuild on the next frame.
+    /// Must be called whenever a body's active flag or motion type changes.
+    void markActiveIndicesDirty() noexcept { m_activeIndicesDirty = true; }
+
+public:
     /// @brief  Auto-tune the spatial hash cell size based on body density.
     ///
     /// Uses a simple spacing heuristic: compute the diagonal of all bodies'
@@ -2727,10 +2807,6 @@ private:
         return result;
     }
 };
-
-// ── Accumulate profile events after fixedStepTaskGraph execution ──
-// This inline helper is called from fixedStepTaskGraph() after graph.execute()
-// to merge the current frame's events into the accumulated buffer.
 
 //==================================================================================================
 // Multi‑threaded Task‑Based Stepping

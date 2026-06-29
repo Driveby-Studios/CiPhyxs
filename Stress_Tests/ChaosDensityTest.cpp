@@ -54,12 +54,8 @@ int main() {
     // Setup
     // ════════════════════════════════════════════════════════════════════════════════════════════
     {
-        // SpatialHash broadphase with a small cell size (1.0m vs default 4.0m) since 5000 bodies
-        // are clustered in ~5m × 5m × 5m space.  With cellSize=4.0, most bodies fall into 1-2
-        // cells, making the hash degenerate to O(n²).  Cell size of 1.0 distributes them across
-        // ~125 cells for efficient culling.
+        // SpatialHash broadphase — cell size will be auto-tuned after all bodies are created.
         world.setBroadphaseType(BroadphaseType::SpatialHash);
-        world.broadphaseConfig().spatialHashCellSize = 1.0f;
         {
             PhysicsWorldConfig cfg = world.config();
             cfg.gravity                = Vec3f(0.0f, -9.81f, 0.0f);
@@ -166,6 +162,11 @@ int main() {
 
         printf("   Total bodies: %zu\n", world.bodies().size());
 
+        // Auto-tune spatial hash cell size based on body density (prevents O(n²) degeneracy).
+        world.autoTuneSpatialHashCellSize();
+        printf("   Auto-tuned spatial hash cell size: %.2f\n",
+               world.broadphaseConfig().spatialHashCellSize);
+
         // ── Apply explosion impulse to all dynamic bodies ───────────────────────────────────
         const Vec3f blastCenter = Vec3f::zero();
         auto& bodies = world.bodies();
@@ -246,9 +247,9 @@ int main() {
     }
     printf("   Active bodies:     %d\n", activeCount);
 
-    // Output TaskGraph profile summary.
-    printf("\n── TaskGraph Profile Summary ──\n");
-    auto summary = world.taskGraphProfileSummary();
+    // Output TaskGraph profile summary (accumulated across all frames).
+    printf("\n── TaskGraph Profile Summary (accumulated across %d frames) ──\n", kNumFrames);
+    auto summary = world.accumulatedProfileSummary();
     if (summary.empty()) {
         printf("   (no profile data — profiling may not be enabled)\n");
     } else {

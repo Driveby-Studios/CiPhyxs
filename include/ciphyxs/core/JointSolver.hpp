@@ -453,19 +453,29 @@ private:
         return (total > 1e-10f) ? 1.0f / total : 0.0f;
     }
 
-    // ─── Hinge limit enforcement ───────────────────────────────────────────────────────────────
+    // ─── Hinge limit enforcement (velocity-damping) ────────────────────────────────────────────
     //
     // Computes the current hinge angle from the relative orientation of the two bodies
     // projected onto the hinge axis.  If the angle exceeds [limitMin, limitMax], applies
-    // a Baumgarte-stabilised angular impulse to keep the hinge within bounds.
+    // a velocity-damping impulse to prevent further motion past the limit.
     //
-    // The hinge angle is extracted from the quaternion qRel = conj(qA) * qB by decomposing
-    // the rotation around the hinge axis.  For a hinge aligned to the local X axis,
-    // the angle is 2 * atan2(qRel.y, qRel.w) where qRel.y is the component around the hinge
-    // axis after rotating into the hinge frame.
+    // ## Design: Velocity-only damping (no positional Baumgarte)
+    //
+    // A Baumgarte position-correction bias creates a feedback loop: the correction
+    // impulse over-shoots, then the next frame's opposite-direction correction
+    // amplifies instead of damps — causing angular velocity to grow unbounded
+    // (e.g., 5 rad/s → 30.5 rad/s).
+    //
+    // By applying velocity-only damping, the limit acts as a one-sided barrier:
+    // it opposes motion that would move the angle further past the limit, but
+    // does NOT actively push the angle back.  Gravity and external forces
+    // naturally return the hinge toward the valid range.
+    //
+    // The hinge angle is extracted from the quaternion qRel = conj(qA) * qB
+    // by projecting the rotation onto the hinge axis.
 
     static void enforceHingeLimits(const JointStorage& joint,
-                                    float dt, float baumgarte,
+                                    float dt, float /*baumgarte*/,
                                     RigidBodyHotSpan h) noexcept {
         RigidBodyHandle hA = joint.bodyA;
         RigidBodyHandle hB = joint.bodyB;
@@ -479,31 +489,20 @@ private:
         Quaternionf qRel = qA.conjugate() * qB;
 
         // Decompose the relative rotation into angle around the hinge axis.
-        // We need to project qRel's rotation onto axisWorld.
-        // Convert axisWorld to A's local frame to decompose.
-        Vec3f axisLocal = qA.rotateInverse(axisWorld);  // should be ~localAxisA
-
-        // The component of qRel's rotation around axisLocal gives us the hinge angle.
-        // For a quaternion q = [cos(θ/2), sin(θ/2) * axis], the projection of the
-        // rotation onto a given axis a is: angle = 2 * atan2(q.vec · a, q.w)
-        // where q.vec is the vector part (x, y, z).
+        Vec3f axisLocal = qA.rotateInverse(axisWorld);
         float sinHalf = qRel.x * axisLocal.x + qRel.y * axisLocal.y + qRel.z * axisLocal.z;
         float cosHalf = qRel.w;
         float angle = 2.0f * std::atan2(sinHalf, cosHalf);
 
         // Check if angle exceeds limits.
         if (angle < joint.limitMin || angle > joint.limitMax) {
-            // Compute error: distance past the limit (negative if below min).
-            float error = 0.0f;
-            if (angle < joint.limitMin) error = angle - joint.limitMin;
-            else                        error = angle - joint.limitMax;
+            // Compute direction: -1 if below min, +1 if above max.
+            float error = (angle < joint.limitMin)
+                ? (angle - joint.limitMin)
+                : (angle - joint.limitMax);
 
-            // Only enforce if the error is significant.
             constexpr float kLimitSlop = 0.01f;  // radians (~0.57 deg)
             if (std::abs(error) < kLimitSlop) return;
-
-            // Bias velocity: Baumgarte correction.
-            float bias = baumgarte * error / dt;
 
             // Effective mass for angular impulse along axisWorld.
             Vec3f invInertiaA = h.inverseInertiaDiag[hA];
@@ -525,25 +524,56 @@ private:
             if (invEff < 1e-10f) return;
             float effMass = 1.0f / invEff;
 
-            // Compute impulse to correct the error (with bias).
+            // Velocity-only damping: compute the component of relative velocity
+            // that would move the angle FURTHER past the limit, and cancel it.
             float wRel = (h.angularVelocities[hB]
                         - h.angularVelocities[hA]).dot(axisWorld);
-            float lambda = effMass * (wRel + bias);
 
-            // Clamp: limit impulse should only push *toward* the valid range.
-            // If we're below min, we want positive impulse (increase angle).
-            // If we're above max, we want negative impulse (decrease angle).
-            float maxImpulse = 1e6f;  // effectively unlimited
+            // Determine which velocity component to oppose:
+            // - Above max (error > 0): oppose positive wRel (opening further)
+            // - Below min (error < 0): oppose negative wRel (closing further)
+            // In both cases, allow velocity that naturally returns toward range.
+            float opposingVel = 0.0f;
             if (error < 0) {
-                // Below min: need to increase angle → negative lambda pushes angle up.
-                lambda = std::min(lambda, 0.0f);  // only allow restoring impulse
+                // Below min: only oppose NEGATIVE wRel (angle decreasing further).
+                // Allow positive wRel (angle increasing back toward range).
+                opposingVel = std::min(wRel, 0.0f);
             } else {
-                // Above max: need to decrease angle → positive lambda pushes angle down.
-                lambda = std::max(lambda, 0.0f);
+                // Above max: only oppose POSITIVE wRel (angle increasing further).
+                // Allow negative wRel (angle decreasing back toward range).
+                opposingVel = std::max(wRel, 0.0f);
             }
-            lambda = std::clamp(lambda, -maxImpulse, maxImpulse);
+
+            // Apply gentle softness to avoid chatter at the limit boundary.
+            // We cancel `softness * opposingVel`, leaving the rest untouched.
+            // This prevents numerical chatter when a body rests exactly at the limit.
+            constexpr float kLimitSoftness = 0.85f;
+            float lambda = effMass * (kLimitSoftness * opposingVel);
 
             if (std::abs(lambda) < 1e-12f) return;
+
+            // Soft position correction: a tiny Baumgarte push to gradually
+            // return the angle toward the valid range.  The factor is heavily
+            // reduced compared to the main constraint solver's Baumgarte to
+            // prevent over-correction oscillation.
+            constexpr float kLimitPositionFeedback = 0.02f;  // was baumgarte (0.15)
+            float posLambda = effMass * (kLimitPositionFeedback * error / dt);
+
+            // Add position correction in the restoring direction only.
+            if (error < 0) {
+                // Below min: need positive lambda to push angle up.
+                posLambda = std::max(posLambda, 0.0f);
+            } else {
+                // Above max: need negative lambda to push angle down.
+                posLambda = std::min(posLambda, 0.0f);
+            }
+            lambda += posLambda;
+
+            // Safeguard: clamp total correction to prevent any single-frame
+            // velocity change from exceeding the current velocity + a small margin.
+            float maxDeltaV = std::max(std::abs(wRel), 0.1f);
+            float maxLambda = effMass * maxDeltaV;
+            lambda = std::clamp(lambda, -maxLambda, maxLambda);
 
             // Apply angular impulse.
             if (h.inverseMasses[hA] > 0.0f) {
