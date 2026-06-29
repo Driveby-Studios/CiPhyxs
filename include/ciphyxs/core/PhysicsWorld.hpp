@@ -76,6 +76,28 @@ struct ISolverHook {
 
     /// @brief  Post-solve hook — called after constraint solving.  Post-stabilisation or debug output.
     virtual void onPostSolve(float dt, RigidBodyStorage& bodies) = 0;
+
+    // ─── Collision event callbacks (gameplay integration) ───────────────────────
+    //
+    //  Fired each fixed step after narrowphase completes.
+    //  `manifold` is valid only during the callback call — do not store references.
+    //
+    //  @param manifold  The contact manifold for this pair of bodies.
+    //
+    //  onContactStart — first frame two bodies touch.
+    //  onContactStay  — every subsequent frame while contact persists.
+    //  onContactEnd   — the frame after contact is lost.
+    //  onContactEnd receives body handles instead of a manifold
+    //  (the manifold was already cleared).
+
+    /// @brief  Called the first frame two bodies begin touching.
+    virtual void onContactStart(const ContactManifold& /*manifold*/) {}
+
+    /// @brief  Called every frame while contact persists (after the first frame).
+    virtual void onContactStay(const ContactManifold& /*manifold*/) {}
+
+    /// @brief  Called when a previously-touching pair separates.
+    virtual void onContactEnd(RigidBodyHandle /*bodyA*/, RigidBodyHandle /*bodyB*/) {}
 };
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1423,8 +1445,9 @@ private:
         // Phase 8 – sleep management
         updateSleep(dt);
 
-        // Rebuild active-dynamic index array for next frame's hot loops.
-        rebuildActiveDynamicIndices();
+        // NOTE: rebuildActiveDynamicIndices() is NOT called here because it
+        // will be called at the top of the next fixedStep() / fixedStepTaskGraph().
+        // This saves one O(n) pass per frame.
 
         ++m_stepCount;
     }
@@ -1568,19 +1591,22 @@ private:
                     std::snprintf(bufS, sizeof(bufS), "Solve_%zu", i);
                 }
 
-                // Build the per-island body list for CCD (avoids copying in the lambda).
-                // We copy the body handles into a small vector for the CCD lambda.
-                std::vector<RigidBodyHandle> ccdBodies;
+                // Capture a span into the island's body data.
+                // The IslandSolver's body vectors are stable during DAG execution.
+                const RigidBodyHandle* ccdBodyData = nullptr;
+                std::size_t ccdBodyCount = 0;
                 if (hasCCD) {
-                    ccdBodies = island.bodies; // copy — needed by lambda capture
+                    ccdBodyData = island.bodies.data();
+                    ccdBodyCount = island.bodies.size();
                 }
 
                 // ── CCD task ──────────────────────────────────────────────────────────
                 TaskId stageCCD = kInvalidTaskId;
                 if (hasCCD) {
                     stageCCD = graph.add(std::string_view(bufC), {&stageFormIslands, 1},
-                        [this, dt, ccdBodies = std::move(ccdBodies)]() {
-                            runCCDForBodies(ccdBodies, dt);
+                        [this, dt, ccdBodyData, ccdBodyCount]() {
+                            auto bodySpan = std::span<const RigidBodyHandle>(ccdBodyData, ccdBodyCount);
+                            runCCDForBodies(bodySpan, dt);
                         });
                 }
 
@@ -1594,8 +1620,7 @@ private:
                 TaskId narrowDep = (hasCCD) ? stageCCD : stageFormIslands;
                 auto stageNarrow = graph.add(std::string_view(bufN), {&narrowDep, 1},
                     [this, dt, i]() {
-                        auto pairs = getIslandPairs(i);
-                        runNarrowphase(pairs, m_islandManifolds[i]);
+                        runNarrowphaseForIsland(i, m_islandManifolds[i]);
                     });
 
                 // ── Contact reduction task ────────────────────────────────────────────
@@ -1655,16 +1680,14 @@ private:
                                                m_activeDynamicIndices.size());
                     if (start >= end) break;
 
-                    std::vector<RigidBodyHandle> chunkBodies;
-                    chunkBodies.reserve(end - start);
-                    for (std::size_t ai = start; ai < end; ++ai)
-                        chunkBodies.push_back(m_activeDynamicIndices[ai]);
+                    RigidBodyHandle* chunkStart = m_activeDynamicIndices.data() + start;
 
                     char buf[64];
                     std::snprintf(buf, sizeof(buf), "CCD_C%zu", ci);
                     auto tid = graph.add(buf, {&stageFormIslands, 1},
-                        [this, dt, bodies = std::move(chunkBodies)]() {
-                            runCCDForBodies(bodies, dt);
+                        [this, dt, chunkStart, chunkEnd = end - start]() {
+                            auto bodySpan = std::span<const RigidBodyHandle>(chunkStart, chunkEnd);
+                            runCCDForBodies(bodySpan, dt);
                         });
                     ccdTaskIds.push_back(tid);
                 }
@@ -1688,19 +1711,16 @@ private:
                     std::size_t end = std::min(start + pairsPerChunk, m_pairs.size());
                     if (start >= end) break;
 
-                    // Build a span of pairs for this chunk.
+                    // Use a span into m_pairs — no copy needed.
                     BroadphasePair* chunkStart = m_pairs.data() + start;
                     std::size_t chunkCount = end - start;
-                    auto pairSpan = std::span<const BroadphasePair>(chunkStart, chunkCount);
-
-                    // We need to copy the span into a vector for the lambda capture.
-                    std::vector<BroadphasePair> chunkPairs(pairSpan.begin(), pairSpan.end());
 
                     char buf[64];
                     std::snprintf(buf, sizeof(buf), "Narrow_C%zu", ci);
                     auto tid = graph.add(buf, {&stageFormIslands, 1},
-                        [this, ci, pairs = std::move(chunkPairs)]() {
-                            runNarrowphase(pairs, m_islandManifolds[ci]);
+                        [this, ci, chunkStart, chunkCount]() {
+                            auto pairSpan = std::span<const BroadphasePair>(chunkStart, chunkCount);
+                            runNarrowphase(pairSpan, m_islandManifolds[ci]);
                         });
                     narrowTaskIds.push_back(tid);
                 }
@@ -2104,7 +2124,8 @@ private:
     //  @param outManifolds Output manifold buffer (appended to).
     // ────────────────────────────────────────────────────────────────────────────────────────────
 
-    void runNarrowphase(const std::vector<BroadphasePair>& pairs,
+    /// @brief  Span-based narrowphase (used by task-graph chunks to avoid copying).
+    void runNarrowphase(std::span<const BroadphasePair> pairs,
                         std::vector<ContactManifold>& outManifolds) const {
 
         for (const auto& pair : pairs) {
@@ -2168,6 +2189,12 @@ private:
         }
     }
 
+    /// @brief  Vector-based narrowphase (fallback for callers that prefer vector).
+    void runNarrowphase(const std::vector<BroadphasePair>& pairs,
+                        std::vector<ContactManifold>& outManifolds) const {
+        runNarrowphase(std::span<const BroadphasePair>(pairs), outManifolds);
+    }
+
     // ─── Phase 3c: Sequential detectCollisions (combines broadphase + narrowphase) ────────────
     //
     //  Used by the sequential fixedStep() path.  The task-graph path uses runBroadphase()
@@ -2176,7 +2203,7 @@ private:
 
     void detectCollisions() {
         runBroadphase();
-        runNarrowphase(m_pairs, m_manifolds);
+        runNarrowphase(std::span<const BroadphasePair>(m_pairs), m_manifolds);
     }
 
     // ─── Island pair assignment ────────────────────────────────────────────────────────────────
@@ -2226,6 +2253,77 @@ private:
             pairs.push_back(m_pairs[idx]);
         }
         return pairs;
+    }
+
+    /// @brief  Run narrowphase for a single island using its pre-assigned pair indices.
+    ///         Avoids the copy overhead of getIslandPairs().
+    void runNarrowphaseForIsland(std::size_t islandIdx,
+                                  std::vector<ContactManifold>& outManifolds) const {
+        if (islandIdx >= m_islandPairIndices.size()) return;
+        const auto& indices = m_islandPairIndices[islandIdx];
+        for (auto pi : indices) {
+            if (pi >= m_pairs.size()) continue;
+            const BroadphasePair& pair = m_pairs[pi];
+            RigidBodyHandle hA = pair.bodyA;
+            RigidBodyHandle hB = pair.bodyB;
+
+            // Collision filter check.
+            if (m_collisionFilter && !m_collisionFilter->shouldCollide(hA, hB)) continue;
+
+            // Per-body collision group/mask filter.
+            {
+                const std::uint32_t groupA = m_bodies.collisionGroups[hA];
+                const std::uint32_t maskA  = m_bodies.collisionMasks[hA];
+                const std::uint32_t groupB = m_bodies.collisionGroups[hB];
+                const std::uint32_t maskB  = m_bodies.collisionMasks[hB];
+                if (!((groupA & maskB) && (groupB & maskA))) continue;
+            }
+
+            std::uint32_t startA = m_bodies.shapeStart[hA];
+            std::uint32_t countA = m_bodies.shapeCount[hA];
+            std::uint32_t startB = m_bodies.shapeStart[hB];
+            std::uint32_t countB = m_bodies.shapeCount[hB];
+            if (countA == 0 || countB == 0) continue;
+
+            for (std::uint32_t sa = 0; sa < countA; ++sa) {
+                ShapeHandle shA = m_bodies.flatShapeHandles[startA + sa];
+                if (shA >= m_shapes.size()) continue;
+
+                Vec3f localPosA = m_bodies.flatShapeLocalPositions[startA + sa];
+                Quaternionf localRotA = m_bodies.flatShapeLocalRotations[startA + sa];
+                Vec3f worldPosA = m_bodies.positions[hA]
+                                 + m_bodies.rotations[hA].rotate(localPosA);
+                Quaternionf worldRotA = m_bodies.rotations[hA] * localRotA;
+                const Shape& shapeA = m_shapes[shA];
+
+                for (std::uint32_t sb = 0; sb < countB; ++sb) {
+                    if (hA == hB && sa == sb) continue;
+
+                    ShapeHandle shB = m_bodies.flatShapeHandles[startB + sb];
+                    if (shB >= m_shapes.size()) continue;
+
+                    Vec3f localPosB = m_bodies.flatShapeLocalPositions[startB + sb];
+                    Quaternionf localRotB = m_bodies.flatShapeLocalRotations[startB + sb];
+                    Vec3f worldPosB = m_bodies.positions[hB]
+                                     + m_bodies.rotations[hB].rotate(localPosB);
+                    Quaternionf worldRotB = m_bodies.rotations[hB] * localRotB;
+                    const Shape& shapeB = m_shapes[shB];
+
+                    ContactManifold manifold;
+                    manifold.bodyA = hA;
+                    manifold.bodyB = hB;
+
+                    if (collideShapes(shapeA, worldPosA, worldRotA,
+                                      shapeB, worldPosB, worldRotB,
+                                      m_bodies.restitutions[hA], m_bodies.restitutions[hB],
+                                      m_bodies.frictions[hA],    m_bodies.frictions[hB],
+                                      manifold)) {
+                        transferWarmStart(manifold, m_oldManifolds);
+                        outManifolds.push_back(std::move(manifold));
+                    }
+                }
+            }
+        }
     }
 
     /// @brief  Solve a local manifold buffer directly (no island indexing).
@@ -2309,10 +2407,10 @@ private:
             integrateLinearPositionsBatch4(idx, positions, linVels, dt);
 
             // Angular per-body (quaternion normalize not SIMD-friendly).
-            integrateAngularPosition(idx[0], angVels, rots, inertiaRots);
-            integrateAngularPosition(idx[1], angVels, rots, inertiaRots);
-            integrateAngularPosition(idx[2], angVels, rots, inertiaRots);
-            integrateAngularPosition(idx[3], angVels, rots, inertiaRots);
+            integrateAngularPosition(idx[0], angVels, rots, inertiaRots, dt);
+            integrateAngularPosition(idx[1], angVels, rots, inertiaRots, dt);
+            integrateAngularPosition(idx[2], angVels, rots, inertiaRots, dt);
+            integrateAngularPosition(idx[3], angVels, rots, inertiaRots, dt);
         }
 
         // Scalar remainder for the last 0-3 bodies.
@@ -2323,7 +2421,7 @@ private:
             positions[i] += linVels[i] * dt;
 
             // Angular: q' = q + 1/2 * w * q * dt
-            integrateAngularPosition(i, angVels, rots, inertiaRots);
+            integrateAngularPosition(i, angVels, rots, inertiaRots, dt);
         }
 
         // ── Pass 2: Active kinematic bodies (not in dynamic index array) ────────────
@@ -2703,6 +2801,81 @@ private:
     /// @brief  Mark the active-dynamic indices as dirty, forcing a rebuild on the next frame.
     /// Must be called whenever a body's active flag or motion type changes.
     void markActiveIndicesDirty() noexcept { m_activeIndicesDirty = true; }
+
+    // ─── Collision event dispatch ───────────────────────────────────────────────────────
+
+    /// @brief  Fire onContactStart / onContactStay / onContactEnd for all registered hooks.
+    ///
+    /// Compares m_manifolds (current frame) against m_oldManifolds (previous frame) to
+    /// detect new, persisting, and ended contact pairs.  Must be called AFTER narrowphase
+    /// (so m_manifolds is populated) but BEFORE the next frame's runBroadphase() which
+    /// swaps m_manifolds into m_oldManifolds.
+    void fireCollisionEvents() const noexcept {
+        if (m_hooks.empty()) return;
+
+        // Check if any hook has overridden the collision event methods.
+        // We only need to do work if at least one hook has a non-empty handler.
+        // Use SFINAE-friendly approach: just check for onContactStart since
+        // the three methods are always declared.
+        bool hasAnyEvents = false;
+        for (auto* hook : m_hooks) {
+            // Use a type-erased check via a static flag in the hook class.
+            // For now, always fire if hooks are registered.
+            hasAnyEvents = true;
+            (void)hook;
+        }
+        if (!hasAnyEvents) return;
+
+        // Build a set of (bodyA, bodyB) pairs for the current frame's manifolds.
+        // Use a simple O(n*m) approach since the number of manifolds per frame is
+        // typically small (< 1000).  For larger scenes, a hash table would be faster.
+        //
+        // We want to detect three states per pair:
+        //   - In current AND old  → onContactStay
+        //   - In current NOT old  → onContactStart
+        //   - NOT in current, in old → onContactEnd
+
+        // Track which old manifolds have been matched.
+        const std::size_t numOld = m_oldManifolds.size();
+        const std::size_t numNew = m_manifolds.size();
+
+        // Small-scene optimization: use a simple O(n*m) approach which is
+        // cache-friendly for typical contact counts (< 500 manifolds).
+        for (std::size_t ni = 0; ni < numNew; ++ni) {
+            const auto& newMf = m_manifolds[ni];
+            bool found = false;
+            for (std::size_t oi = 0; oi < numOld; ++oi) {
+                const auto& oldMf = m_oldManifolds[oi];
+                if ((newMf.bodyA == oldMf.bodyA && newMf.bodyB == oldMf.bodyB) ||
+                    (newMf.bodyA == oldMf.bodyB && newMf.bodyB == oldMf.bodyA)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                for (auto* hook : m_hooks) hook->onContactStay(newMf);
+            } else {
+                for (auto* hook : m_hooks) hook->onContactStart(newMf);
+            }
+        }
+
+        // Find ended contacts: in old but not in current.
+        for (std::size_t oi = 0; oi < numOld; ++oi) {
+            const auto& oldMf = m_oldManifolds[oi];
+            bool found = false;
+            for (std::size_t ni = 0; ni < numNew; ++ni) {
+                const auto& newMf = m_manifolds[ni];
+                if ((oldMf.bodyA == newMf.bodyA && oldMf.bodyB == newMf.bodyB) ||
+                    (oldMf.bodyA == newMf.bodyB && oldMf.bodyB == newMf.bodyA)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (auto* hook : m_hooks) hook->onContactEnd(oldMf.bodyA, oldMf.bodyB);
+            }
+        }
+    }
 
 public:
     /// @brief  Auto-tune the spatial hash cell size based on body density.

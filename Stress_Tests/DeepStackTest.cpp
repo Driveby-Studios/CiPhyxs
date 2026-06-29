@@ -16,9 +16,7 @@ int main() {
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Test state
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    // Use the PhysicsWorld::Preset::LowEnd constructor which applies the same
-    // AggressiveMode settings automatically.
-    PhysicsWorld world(PhysicsWorld::Preset::LowEnd);
+    PhysicsWorld world;
     NullDebugRenderer debugRenderer;
     Stopwatch timer;
 
@@ -36,15 +34,14 @@ int main() {
     // Setup
     // ════════════════════════════════════════════════════════════════════════════════════════════
     {
-        // PhysicsWorld(PhysicsWorld::Preset::LowEnd) already applied the low-end preset.
-        // Override with test-specific tuning: more iterations for stack stability,
-        // higher friction to prevent sliding, and disable CCD (no fast bodies in stack).
         {
             PhysicsWorldConfig cfg = world.config();
             cfg.linearDamping        = 0.1f;
             cfg.angularDamping       = 0.1f;
             cfg.ccdSpeedThreshold    = 0.0f;
             cfg.ccdMaxSubSteps       = 0;
+            cfg.enableParallelSolver      = false;
+            cfg.enableTaskGraphPipeline   = false;
             world.setConfig(cfg);
         }
         {
@@ -104,6 +101,7 @@ int main() {
     // Run simulation
     // ════════════════════════════════════════════════════════════════════════════════════════════
     timer.start();
+
     for (int frame = 0; frame < kNumFrames; ++frame) {
         world.step(kFixedDt);
 

@@ -330,14 +330,16 @@ inline void integrateAngularPosition(
     std::size_t       i,
     const Vec3f*      angVels,
     Quaternionf*      rots,
-    Quaternionf*      inertiaRots) noexcept {
+    Quaternionf*      inertiaRots,
+    float             dt) noexcept {
 
     Vec3f w = angVels[i];
-    Quaternionf dq = Quaternionf(0.0f, w.x, w.y, w.z) * rots[i];
-    dq.w *= 0.5f;
-    dq.x *= 0.5f;
-    dq.y *= 0.5f;
-    dq.z *= 0.5f;
+    // dq/dt = 0.5 * ω_quat * q  →  dq = 0.5 * ω_quat * q * dt
+    Quaternionf dq = (Quaternionf(0.0f, w.x, w.y, w.z) * rots[i]);
+    dq.w = dq.w * (0.5f * dt);
+    dq.x = dq.x * (0.5f * dt);
+    dq.y = dq.y * (0.5f * dt);
+    dq.z = dq.z * (0.5f * dt);
 
     rots[i].w += dq.w;
     rots[i].x += dq.x;

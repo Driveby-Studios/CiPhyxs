@@ -872,7 +872,7 @@ inline bool collideBoxPlane(const Box& box, const Vec3f& posA, const Quaternionf
         float signedDist = (corners[i] - posB).dot(nWorld) - plane.distance;
         if (signedDist < 0.0f) {
             ContactPoint pt;
-            pt.position    = corners[i] - nWorld * signedDist;  // project onto plane
+            pt.position    = corners[i] - nWorld * signedDist;
             pt.normal      = -nWorld;
             pt.penetration = -signedDist;
             pt.featureA    = i;

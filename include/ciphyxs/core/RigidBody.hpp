@@ -97,7 +97,11 @@ struct RigidBodyDesc {
     float     restitution = 0.35f;   ///< Coefficient of restitution [0, 1].
     float     friction    = 0.50f;   ///< Coulomb friction coefficient >= 0.
 
-    // ─── Flags ──────────────────────────────────────────────────────────────────────────────────
+    // ─── Collision filtering ───────────────────────────────────────────────────────
+    std::uint32_t collisionGroup = 0xFFFFFFFF;   ///< Bitmask: which groups this body belongs to.
+    std::uint32_t collisionMask  = 0xFFFFFFFF;   ///< Bitmask: which groups this body collides with.
+
+    // ─── Flags ──────────────────────────────────────────────────────────────────
     MotionType motionType = MotionType::Dynamic;
     bool       startActive = true;
     CcdMode    ccdMode     = CcdMode::Cast;   ///< CCD mode for this body.
@@ -253,6 +257,8 @@ struct RigidBodyStorage {
     AlignedVector<uint8_t, 16>     activeFlags;
     AlignedVector<uint8_t, 16>     ccdModes;
     AlignedVector<float, 16>       sleepTimers;
+    AlignedVector<std::uint32_t, 16> collisionGroups;
+    AlignedVector<std::uint32_t, 16> collisionMasks;
 
     // ─── Hot / cold accessors ───────────────────────────────────────────────────────────────
 
@@ -315,6 +321,8 @@ struct RigidBodyStorage {
         shapeCount.reserve(count);
         ccdModes.reserve(count);
         sleepTimers.reserve(count);
+        collisionGroups.reserve(count);
+        collisionMasks.reserve(count);
     }
 
     /// @brief  Append a body from a descriptor.  Returns its handle (index).
@@ -367,6 +375,8 @@ struct RigidBodyStorage {
         activeFlags.emplace_back(desc.startActive ? uint8_t(1) : uint8_t(0));
         ccdModes.emplace_back(static_cast<uint8_t>(desc.ccdMode));
         sleepTimers.emplace_back(0.0f);
+        collisionGroups.emplace_back(desc.collisionGroup);
+        collisionMasks.emplace_back(desc.collisionMask);
 
         return h;
     }
@@ -401,6 +411,8 @@ struct RigidBodyStorage {
             swap(activeFlags);
             swap(ccdModes);
             swap(sleepTimers);
+            swap(collisionGroups);
+            swap(collisionMasks);
         }
         positions.pop_back();
         rotations.pop_back();
@@ -422,6 +434,8 @@ struct RigidBodyStorage {
         activeFlags.pop_back();
         ccdModes.pop_back();
         sleepTimers.pop_back();
+        collisionGroups.pop_back();
+        collisionMasks.pop_back();
     }
 
     /// @brief  Remove all bodies.
@@ -442,6 +456,8 @@ struct RigidBodyStorage {
         motionTypes.clear();
         activeFlags.clear();
         ccdModes.clear();
+        collisionGroups.clear();
+        collisionMasks.clear();
         flatShapeHandles.clear();
         flatShapeLocalPositions.clear();
         flatShapeLocalRotations.clear();
