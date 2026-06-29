@@ -32,9 +32,9 @@ int main() {
             cfg.angularDamping         = 0.05f;
             cfg.sleepEnergyThreshold   = 0.001f;
             cfg.sleepTimeRequired      = 0.5f;
-            cfg.enableParallelSolver   = true;
-            cfg.numThreads             = 0; // auto = hardware_concurrency
-            cfg.enableTaskGraphPipeline = true;
+            cfg.enableParallelSolver   = false;
+            cfg.numThreads             = 0;
+            cfg.enableTaskGraphPipeline = false;
             cfg.ccdSpeedThreshold      = 20.0f;
             cfg.ccdMaxSubSteps         = 4;
             w.setConfig(cfg);

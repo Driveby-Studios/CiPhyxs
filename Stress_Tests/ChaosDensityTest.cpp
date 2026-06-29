@@ -64,9 +64,9 @@ int main() {
             cfg.angularDamping         = 0.1f;
             cfg.sleepEnergyThreshold   = 0.01f;
             cfg.sleepTimeRequired      = 0.5f;
-            cfg.enableParallelSolver   = true;
-            cfg.numThreads             = 0; // auto = hardware_concurrency
-            cfg.enableTaskGraphPipeline = true;
+            cfg.enableParallelSolver   = false;
+            cfg.numThreads             = 0;
+            cfg.enableTaskGraphPipeline = false;
             cfg.ccdSpeedThreshold      = 50.0f;
             cfg.ccdMaxSubSteps         = 4;
             world.setConfig(cfg);

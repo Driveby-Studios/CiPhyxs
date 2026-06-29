@@ -45,6 +45,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -93,7 +94,9 @@ public:
         : m_nodes(std::move(other.m_nodes))
         , m_remaining(std::move(other.m_remaining))
         , m_remainingSize(std::exchange(other.m_remainingSize, 0))
-        , m_execRemaining(std::move(other.m_execRemaining))
+        , m_execRemaining(other.m_execRemaining.load(std::memory_order_relaxed))
+        , m_pendingEnqueues(other.m_pendingEnqueues.load(std::memory_order_relaxed))
+        // m_completeMutex and m_completeCv are not movable — default-initialised
         , m_profileMutex()  // mutex is not movable — re-initialised
         , m_profilingEnabled(std::exchange(other.m_profilingEnabled, false))
         , m_profileEvents(std::move(other.m_profileEvents))
@@ -104,10 +107,13 @@ public:
             m_nodes              = std::move(other.m_nodes);
             m_remaining          = std::move(other.m_remaining);
             m_remainingSize      = std::exchange(other.m_remainingSize, 0);
-            m_execRemaining      = std::move(other.m_execRemaining);
+            m_execRemaining.store(other.m_execRemaining.load(std::memory_order_relaxed),
+                                  std::memory_order_relaxed);
+            m_pendingEnqueues.store(other.m_pendingEnqueues.load(std::memory_order_relaxed),
+                                    std::memory_order_relaxed);
             m_profilingEnabled   = std::exchange(other.m_profilingEnabled, false);
             m_profileEvents      = std::move(other.m_profileEvents);
-            // m_profileMutex is intentionally NOT moved (mutex is not movable)
+            // m_completeMutex, m_completeCv, m_profileMutex are intentionally NOT moved
         }
         return *this;
     }
@@ -276,11 +282,23 @@ public:
     /// @brief  Execute the graph on the given thread pool.
     ///
     /// Blocks the calling thread until **all** tasks complete.  The calling thread does **not**
-    /// participate in task execution — it spins briefly checking completion.  This is by design:
-    /// the calling thread is typically the main simulation thread and should not be saturated
-    /// with physics work.
+    /// participate in task execution — it enqueues root tasks and then blocks on a condition
+    /// variable until the graph is fully resolved.  This is by design: the calling thread is
+    /// typically the main simulation thread and should not be saturated with physics work.
     ///
-    /// Safe to call multiple times (after clear() + rebuild).
+    /// ## Synchronisation guarantee
+    ///
+    /// After this function returns, the thread pool is fully idle (all tasks have completed,
+    /// the worker queue is empty, and no worker thread holds references to task graph data).
+    /// This makes it safe to `clear()` and rebuild the graph for the next frame.
+    ///
+    /// The implementation uses a two-phase synchronisation:
+    ///   1. `m_execRemaining` tracks how many nodes have not yet called `completeNode()`.
+    ///   2. `m_pendingEnqueues` tracks tasks that have been submitted to the pool but not
+    ///      yet started execution.  This prevents a subtle race where the completion
+    ///      counter reaches zero before an enqueued dependent has begun executing.
+    ///
+    /// Both counters must reach zero before `execute()` returns.
     ///
     /// @param pool  ThreadPool to dispatch tasks onto.
     void execute(ThreadPool& pool) {
@@ -297,7 +315,12 @@ public:
         for (std::size_t i = 0; i < n; ++i) {
             m_remaining[i].store(m_nodes[i].originalCount, std::memory_order_relaxed);
         }
-        m_execRemaining->store(static_cast<int>(n), std::memory_order_release);
+
+        // Set the global completion counter to the total number of nodes.
+        m_execRemaining.store(static_cast<int>(n), std::memory_order_release);
+
+        // Reset the pending-enqueue counter before dispatching any work.
+        m_pendingEnqueues.store(0, std::memory_order_relaxed);
 
         // Clear profile events from the previous execution.
         if (m_profilingEnabled) {
@@ -306,20 +329,52 @@ public:
 
         // ── Enqueue root tasks (zero dependencies) ─────────────────────────────────────────
         // Roots are enqueued in construction order for determinism.
+        // No-op root tasks (barriers) are completed inline on the calling thread;
+        // their cascading completions may enqueue further work nodes to the pool.
+        //
+        // Each enqueued task is wrapped in a lambda that decrements m_pendingEnqueues
+        // BEFORE executing the task.  When the last pending task starts, it checks if
+        // all nodes are already complete and signals the condition variable if so.
+        // This prevents the deadlock where the last completeNode cannot signal because
+        // pendingEnqueues > 0, yet the pending tasks cannot start because no thread
+        // is available to process them (single-worker scenario).
         for (TaskId i = 0; i < static_cast<TaskId>(n); ++i) {
             if (m_nodes[static_cast<std::size_t>(i)].originalCount == 0) {
                 if (m_nodes[static_cast<std::size_t>(i)].work) {
-                    pool.enqueue([this, i, &pool]() { executeNode(i, pool); });
+                    m_pendingEnqueues.fetch_add(1, std::memory_order_release);
+                    pool.enqueue([this, i, &pool]() {
+                        // This task has started execution — decrement pending counter.
+                        int pendingLeft = m_pendingEnqueues.fetch_sub(1,
+                            std::memory_order_acq_rel);
+                        // If this was the last pending AND all nodes are complete, signal.
+                        if (pendingLeft == 1
+                            && m_execRemaining.load(std::memory_order_acquire) == 0) {
+                            std::lock_guard<std::mutex> lock(m_completeMutex);
+                            m_completeCv.notify_one();
+                        }
+                        executeNode(i, pool);
+                    });
                 } else {
-                    // No-op root — complete inline.
+                    // No-op root — complete inline (may enqueue dependents).
                     completeNode(i, pool);
                 }
             }
         }
 
-        // ── Wait for completion ────────────────────────────────────────────────────────────
-        while (m_execRemaining->load(std::memory_order_acquire) > 0) {
-            std::this_thread::yield();
+        // ── Wait for all nodes to complete ─────────────────────────────────────────────────
+        // We wait on a condition variable that is signalled when both:
+        //   - m_execRemaining == 0 (all nodes have called completeNode)
+        //   - m_pendingEnqueues == 0 (all pool tasks have started execution)
+        //
+        // The second condition is critical: without it, m_execRemaining could reach 0
+        // before an enqueued task has actually begun executing, creating a window where
+        // the caller could clear the graph while a worker still holds a reference to it.
+        {
+            std::unique_lock<std::mutex> lock(m_completeMutex);
+            m_completeCv.wait(lock, [this]() noexcept {
+                return m_execRemaining.load(std::memory_order_acquire) == 0
+                    && m_pendingEnqueues.load(std::memory_order_acquire) == 0;
+            });
         }
     }
 
@@ -371,9 +426,16 @@ private:
         completeNode(id, pool);
     }
 
-    /// @brief  Signal dependents that this node is done, then decrement the completion counter.
+    /// @brief  Signal dependents that this node is done.
+    ///
+    /// Enqueues any dependent whose dependency counter has reached zero.
+    /// Barriers (no-op nodes) are completed inline.
     ///
     /// Call this instead of executeNode when the node has no work body, or after work completes.
+    ///
+    /// @note  Every call to completeNode decrements m_execRemaining by 1 (via fetch_sub).
+    ///        When the count reaches 0 AND no pool tasks are pending, the condition variable
+    ///        is signalled to wake the waiting thread in execute().
     void completeNode(TaskId id, ThreadPool& pool) {
         const Node& node = m_nodes[static_cast<std::size_t>(id)];
 
@@ -386,7 +448,21 @@ private:
                 // All dependencies satisfied — this dependent is ready to run.
                 auto& depNode = m_nodes[static_cast<std::size_t>(depId)];
                 if (depNode.work) {
-                    pool.enqueue([this, depId, &pool]() { executeNode(depId, pool); });
+                    // Increment pending-enqueue counter BEFORE submitting to the pool.
+                    // The counter is decremented by the wrapper lambda when execution begins,
+                    // ensuring we never exit the wait loop while a task is in the queue but
+                    // not yet started.
+                    m_pendingEnqueues.fetch_add(1, std::memory_order_release);
+                    pool.enqueue([this, depId, &pool]() {
+                        int pendingLeft = m_pendingEnqueues.fetch_sub(1,
+                            std::memory_order_acq_rel);
+                        if (pendingLeft == 1
+                            && m_execRemaining.load(std::memory_order_acquire) == 0) {
+                            std::lock_guard<std::mutex> lock(m_completeMutex);
+                            m_completeCv.notify_one();
+                        }
+                        executeNode(depId, pool);
+                    });
                 } else {
                     // Empty work function — signal completion directly.
                     completeNode(depId, pool);
@@ -395,9 +471,21 @@ private:
         }
 
         // Decrement the global completion counter.
-        // This MUST happen after enqueuing dependents, so the counter never reaches
+        // This MUST happen AFTER enqueuing dependents, so the counter never reaches
         // zero before all work has been submitted to the thread pool.
-        m_execRemaining->fetch_sub(1, std::memory_order_release);
+        int remaining = m_execRemaining.fetch_sub(1, std::memory_order_acq_rel);
+        if (remaining == 1) {
+            // We were the last node to complete.  If there are no pending enqueues,
+            // signal the waiting thread.  If there ARE pending enqueues, the worker
+            // that processes the last one will also call completeNode, and when it
+            // sees remaining == 1, it will try to signal again — but pendingEnqueues
+            // will be 0 by then, so the condition will be satisfied.
+            // The signalling is guarded by the mutex to avoid lost wakeups.
+            if (m_pendingEnqueues.load(std::memory_order_acquire) == 0) {
+                std::lock_guard<std::mutex> lock(m_completeMutex);
+                m_completeCv.notify_one();
+            }
+        }
     }
 
     // ─── Member variables ────────────────────────────────────────────────────────────────────────
@@ -405,7 +493,11 @@ private:
     std::vector<Node>                       m_nodes;           ///< Persistent node storage.
     std::unique_ptr<std::atomic<int>[]>     m_remaining;       ///< Per-node dep counters (heap).
     std::size_t                             m_remainingSize = 0;///< Allocated size of m_remaining.
-    std::unique_ptr<std::atomic<int>>       m_execRemaining{std::make_unique<std::atomic<int>>(0)}; ///< Global completion counter.
+
+    std::atomic<int>                        m_execRemaining{0};    ///< Nodes not yet completed.
+    std::atomic<int>                        m_pendingEnqueues{0};  ///< Pool tasks submitted but not started.
+    std::mutex                              m_completeMutex;       ///< Protects m_completeCv.
+    std::condition_variable                 m_completeCv;          ///< Signalled when graph is fully resolved.
 
     // ─── Profiling state ─────────────────────────────────────────────────────────────────────────
     mutable std::mutex                      m_profileMutex;       ///< Must be declared before m_profilingEnabled

@@ -92,6 +92,7 @@
 #include "math/Mat3.hpp"
 #include "math/Quaternion.hpp"
 
+#include "core/Assert.hpp"
 #include "core/RigidBody.hpp"
 #include "core/ConstraintSolver.hpp"
 #include "core/PhysicsWorld.hpp"

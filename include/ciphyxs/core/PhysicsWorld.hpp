@@ -824,6 +824,57 @@ public:
     [[nodiscard]]       RigidBodyStorage& bodies()       noexcept { return m_bodies; }
     [[nodiscard]] const RigidBodyStorage& bodies() const noexcept { return m_bodies; }
 
+    /// @brief  Total number of rigid bodies (dynamic + static + kinematic).
+    [[nodiscard]] std::size_t getBodyCount() const noexcept { return m_bodies.size(); }
+
+    /// @brief  Total number of registered joints.
+    [[nodiscard]] std::size_t getJointCount() const noexcept { return m_joints.size(); }
+
+    /// @brief  Set the collision group and mask for a body.
+    ///
+    /// Two bodies collide iff: (groupA & maskB) && (groupB & maskA).
+    /// Both default to 0xFFFFFFFF (collide with everything).
+    ///
+    /// @param handle  The body handle.
+    /// @param group   The new collision group bitmask.
+    /// @param mask    The new collision mask bitmask (which groups this body collides with).
+    /// @brief  Set the collision group and mask for a body.
+    ///
+    /// Two bodies collide iff: (groupA & maskB) && (groupB & maskA).
+    /// Both default to 0xFFFFFFFF (collide with everything).
+    ///
+    /// @param handle  The body handle.
+    /// @param group   The new collision group bitmask.
+    /// @param mask    The new collision mask bitmask (which groups this body collides with).
+    void setBodyCollisionGroup(RigidBodyHandle handle,
+                                std::uint32_t group,
+                                std::uint32_t mask) noexcept {
+        CIPHYXS_ASSERT(static_cast<std::size_t>(handle) < m_bodies.size(),
+                       "Body handle out of range in setBodyCollisionGroup");
+        m_bodies.collisionGroups[static_cast<std::size_t>(handle)] = group;
+        m_bodies.collisionMasks[static_cast<std::size_t>(handle)]  = mask;
+    }
+
+    /// @brief  Set only the collision group for a body (mask unchanged).
+    void setBodyCollisionGroup(RigidBodyHandle handle,
+                                std::uint32_t group) noexcept {
+        CIPHYXS_ASSERT(static_cast<std::size_t>(handle) < m_bodies.size(),
+                       "Body handle out of range in setBodyCollisionGroup");
+        m_bodies.collisionGroups[static_cast<std::size_t>(handle)] = group;
+    }
+
+    /// @brief  Get the collision group bitmask for a body.
+    [[nodiscard]] std::uint32_t getBodyCollisionGroup(RigidBodyHandle handle) const noexcept {
+        return (static_cast<std::size_t>(handle) < m_bodies.size())
+            ? m_bodies.collisionGroups[static_cast<std::size_t>(handle)] : 0;
+    }
+
+    /// @brief  Get the collision mask bitmask for a body.
+    [[nodiscard]] std::uint32_t getBodyCollisionMask(RigidBodyHandle handle) const noexcept {
+        return (static_cast<std::size_t>(handle) < m_bodies.size())
+            ? m_bodies.collisionMasks[static_cast<std::size_t>(handle)] : 0;
+    }
+
     /// @brief  Pre-allocate storage for `count` bodies to avoid reallocations during simulation.
     ///
     /// Call this BEFORE creating bodies to reserve all internal SoA arrays to the required
@@ -1439,6 +1490,9 @@ private:
         // Phase 6 – post-solve hooks
         for (auto* hook : m_hooks) hook->onPostSolve(dt, m_bodies);
 
+        // Phase 6b – collision events (compare current vs previous frame manifolds)
+        fireCollisionEvents();
+
         // Phase 7 – position integration
         integratePositions(dt);
 
@@ -1777,6 +1831,12 @@ private:
         TaskId stagePostSolveDeps[] = {stageMergeAndJoint};
         auto stagePostSolve = graph.add("PostSolve", stagePostSolveDeps, [this, dt]() {
             for (auto* hook : m_hooks) hook->onPostSolve(dt, m_bodies);
+        });
+
+        // ── Stage 9b – Collision events ──────────────────────────────────────────────────
+        TaskId stageEventsDeps[] = {stagePostSolve};
+        graph.add("CollisionEvents", stageEventsDeps, [this]() {
+            fireCollisionEvents();
         });
 
         // ── Stage 10 – Position integration + sleep ───────────────────────────────────────
@@ -2134,6 +2194,15 @@ private:
 
             // Collision filter check.
             if (m_collisionFilter && !m_collisionFilter->shouldCollide(hA, hB)) continue;
+
+            // Per-body collision group/mask filter.
+            {
+                const std::uint32_t groupA = m_bodies.collisionGroups[hA];
+                const std::uint32_t maskA  = m_bodies.collisionMasks[hA];
+                const std::uint32_t groupB = m_bodies.collisionGroups[hB];
+                const std::uint32_t maskB  = m_bodies.collisionMasks[hB];
+                if (!(groupA & maskB) || !(groupB & maskA)) continue;
+            }
 
             std::uint32_t startA = m_bodies.shapeStart[hA];
             std::uint32_t countA = m_bodies.shapeCount[hA];
@@ -2810,7 +2879,7 @@ private:
     /// detect new, persisting, and ended contact pairs.  Must be called AFTER narrowphase
     /// (so m_manifolds is populated) but BEFORE the next frame's runBroadphase() which
     /// swaps m_manifolds into m_oldManifolds.
-    void fireCollisionEvents() const noexcept {
+    void fireCollisionEvents() noexcept {
         if (m_hooks.empty()) return;
 
         // Check if any hook has overridden the collision event methods.
